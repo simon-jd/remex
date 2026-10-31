@@ -60,6 +60,7 @@ type Scheduler struct {
 	// queued or retrying executions; the in-flight execution per (instance,
 	// action digest) that new requests join; attempt IDs by (worker, dir).
 	runnable    map[string]bool
+	queues      runQueues
 	inflight    map[string]string
 	attemptDirs map[string]string
 	// After a restart with existing state, an action no live worker matches
@@ -91,7 +92,7 @@ func New(ctx context.Context, store Store, cache Cache, cfg Config) (*Scheduler,
 	if err = validateLedger(l); err != nil {
 		return nil, err
 	}
-	s := &Scheduler{store: store, cache: cache, cfg: cfg, ledger: l, deadlines: map[string]time.Time{}, commandDeadlines: map[string]time.Time{}, workers: map[string]workerInfo{}, waiters: map[string]chan struct{}{}, unpublished: map[string]bool{}, publishing: map[string]bool{}, runnable: map[string]bool{}, inflight: map[string]string{}, attemptDirs: map[string]string{}, failure: make(chan error, 1)}
+	s := &Scheduler{store: store, cache: cache, cfg: cfg, ledger: l, deadlines: map[string]time.Time{}, commandDeadlines: map[string]time.Time{}, workers: map[string]workerInfo{}, waiters: map[string]chan struct{}{}, unpublished: map[string]bool{}, publishing: map[string]bool{}, runnable: map[string]bool{}, queues: runQueues{}, inflight: map[string]string{}, attemptDirs: map[string]string{}, failure: make(chan error, 1)}
 	now := cfg.Now()
 	if len(l.Executions) > 0 {
 		s.recoveryUntil = now.Add(cfg.RecoveryGrace)
@@ -209,6 +210,7 @@ func (s *Scheduler) settle(ctx context.Context, seen *uint64, err *error) {
 // reindex rebuilds every index from the ledger.
 func (s *Scheduler) reindex() {
 	s.unpublished, s.runnable, s.inflight, s.attemptDirs = map[string]bool{}, map[string]bool{}, map[string]string{}, map[string]string{}
+	s.queues = runQueues{}
 	for _, e := range s.ledger.Executions {
 		s.indexExecution(e)
 	}
@@ -221,7 +223,12 @@ func inflightKey(e *Execution) string {
 }
 func (s *Scheduler) indexExecution(e *Execution) {
 	setIf(s.unpublished, e.ID, e.State == "Committed")
-	setIf(s.runnable, e.ID, e.State == "Queued" || e.State == "Retrying")
+	runnable := e.State == "Queued" || e.State == "Retrying"
+	if runnable && !s.runnable[e.ID] {
+		s.ledger.execution(e.ID) // keeps the index current
+		s.queues.push(e, s.ledger.executionIndex[e.ID])
+	}
+	setIf(s.runnable, e.ID, runnable)
 	key := inflightKey(e)
 	if !terminal(e) && !e.DoNotCache && !e.HardwareTest {
 		if _, taken := s.inflight[key]; !taken {
@@ -538,15 +545,9 @@ func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseRes
 			return &w.LeaseResponse{}, nil
 		}
 	}
-	candidates := make([]string, 0, len(s.runnable))
-	for id := range s.runnable {
-		candidates = append(candidates, id)
-	}
-	for _, id := range s.byLedgerOrder(candidates) {
-		e := s.ledger.execution(id)
-		if Match(e.Platform, r.Properties) != nil {
-			continue
-		}
+	runnable := func(position int) bool { return s.runnable[s.ledger.Executions[position].ID] }
+	if position := s.queues.oldest(r.Properties, runnable); position >= 0 {
+		e := s.ledger.Executions[position]
 		t := s.ledger.begin()
 		e = t.execution(e.ID)
 		a := &Attempt{ID: newID("attempt-"), ExecutionID: e.ID, Epoch: e.CurrentEpoch, WorkerID: r.WorkerId, WorkerPlatform: copyProps(r.Properties), DeviceVerified: r.Properties["pool"] != "gpu" || r.DeviceSnapshotJson != "", DeviceSnapshotJSON: r.DeviceSnapshotJson, Phase: "Materializing", Status: "UNKNOWN", ResultDigests: []Digest{}}

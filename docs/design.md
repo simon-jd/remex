@@ -121,9 +121,12 @@ lock on its connection.
   attempt either).
 - So committed rows are never modified in place, and a commit costs
   O(rows touched).
-- **Indexes.** The lookups RPCs need are indexed: rows by ID; queued
-  executions; the in-flight execution per action digest, which identical
-  requests join; and attempt directories already used.
+- **Indexes.** The lookups RPCs need are indexed: rows by ID; runnable
+  executions, in a min-heap of ledger positions per distinct platform, so a
+  Lease looks at the oldest execution of each platform the worker matches
+  instead of sorting the whole queue; the in-flight execution per action
+  digest, which identical requests join; and attempt directories already
+  used.
 - **Wakeups.** Execute and WaitExecution streams wait on their own
   execution only.
 - **Fail-stop.** If a ledger write fails, memory is ahead of the store, so

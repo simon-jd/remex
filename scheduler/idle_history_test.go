@@ -20,6 +20,7 @@ func TestIdleHistoryLeaseOrderAndBusyWorker(t *testing.T) {
 	unmatched := f.start(t, true)
 	first, second := f.start(t, true), f.start(t, true)
 	f.s.ledger.execution(unmatched).Platform = map[string]string{"pool": "gpu"}
+	f.s.reindex() // the ledger was edited directly
 	lease := f.lease(t, "cpu1")
 	if lease.ExecutionId != first {
 		t.Fatalf("first compatible execution = %s, want %s", lease.ExecutionId, first)
