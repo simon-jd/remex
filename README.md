@@ -130,27 +130,44 @@ Infrastructure failures cost budget but are never counted as evidence. When
 the evidence does not support an answer, it says so.
 
 `cmd/remex-bisectsim` runs 1,000 bisections per cell on simulated 1,000-commit
-histories, with a budget of 5,000 runs per bisection (the CLI default is
-1,000). The culprit is placed at random and fails with probability p. Each
-run separately hits an infrastructure failure with probability 10%. The two
-baselines see only an exit code, so they count those as test failures, as a
-`git bisect run` script that only checks for a non-zero exit does; a script
-that exits 125 on infrastructure errors would skip them instead, and that
-baseline is not simulated. Results are in `results/bisect-simulation.jsonl`:
+histories. The culprit is placed at random and fails with probability p, and
+each run separately hits an infrastructure failure with probability 10%. The
+model assumes independent runs, a constant failure rate and one failure
+signature. The baselines are `git bisect run` with three probe scripts: one
+that only checks the exit code, so an infrastructure failure looks like a
+test failure; one that exits 125 on an infrastructure failure, so git skips
+that revision; and one that reruns the test until it has N results, retries
+infrastructure failures and reports bad at the first test failure, with N
+swept from 1 to 100. remex runs with the CLI defaults (α = 0.05, a budget
+of 2,000 runs). Results are in `results/bisect-simulation.jsonl`:
 
-| Failure rate p | One-shot git bisect: correct | 5 reruns per probe: correct | **remex: correct / wrong / inconclusive** | remex runs, median (p95) |
-|---|---|---|---|---|
-| 1 | 58% | 10% | **100% / 0% / 0%** | 50 (57) |
-| 0.5 | 3% | 9% | **96.3% / 0% / 3.7%** | 128 (196) |
-| 0.25 | 0.2% | 4% | **95.5% / 0% / 4.5%** | 275 (467) |
-| 0.1 | 0.1% | 1% | **93.7% / 0% / 6.3%** | 725 (1,180) |
+| Failure rate p | git bisect, exit code only: correct | git bisect, exit 125: correct | git bisect, smallest N reaching 99% correct: correct / wrong, median runs | **remex: correct / wrong / inconclusive** | remex runs, median (p95) |
+|---|---|---|---|---|---|
+| 1 | 58% | 81% | N = 1: 100% / 0%, 11 | **100% / 0% / 0%** | 50 (57) |
+| 0.5 | 3% | 5% | N = 10: 99.3% / 0.7%, 67 | **96.3% / 0% / 3.7%** | 128 (196) |
+| 0.25 | 0.2% | 0.9% | N = 30: 99.8% / 0.1%, 186 | **95.5% / 0% / 4.5%** | 275 (467) |
+| 0.1 | 0.1% | 0.3% | N = 100: 99.8% / 0.1%, 609 | **93.7% / 0% / 6.3%** | 725 (1,180) |
 
+- **With the failure rate known, reruns win.** A rerun count picked for the
+  true p is right at least as often as remex and costs fewer runs in every
+  row, at the price of a few wrong answers (up to 0.7%) where remex gave
+  none. `exit 125` alone stops infrastructure noise from blaming the wrong
+  commit for a deterministic failure (81% correct, the rest inconclusive),
+  but one run per revision still misses flaky failures.
+- **remex does not need the failure rate.** One N has to cover the rarest
+  flake expected. N = 100 covers p = 0.1 but costs a median of 561 runs on a
+  deterministic failure, where remex needs 50; N = 10 is cheap but wrong 85%
+  of the time at p = 0.1. remex calibrates on the known-bad revision and
+  sizes its probes from that.
+- **Wrong is rare; inconclusive is the price.** remex gave no wrong answer in
+  any cell above. Zero in 1,000 trials bounds its wrong rate at 0.3% (the
+  one-sided 95% Clopper–Pearson bound, `wrong_upper95` in the results);
+  across all 16 configurations it was wrong once in 16,000 bisections. Every
+  inconclusive answer comes from the final confirmation rejecting the
+  boundary the search reached, after a bad revision passed all its runs.
 - **Why the bound stays exact.** Stopping at the r-th failure keeps the
   Clopper–Pearson bound exact, because
   P(r-th failure within n runs) = P(Binomial(n, p) ≥ r).
-- **Without infrastructure noise,** one-shot bisect is right only for
-  deterministic failures. remex then costs about 4× the runs (45 vs 10) to
-  confirm its answer.
 
 **On real hardware.** `scripts/hardware-corpus.py` generates a 96-commit
 history with five planted regressions (deterministic C++, CUDA and RTL bugs,

@@ -182,19 +182,26 @@ than guess.
 of reruns per probe; a fixed-size calibration of 20 runs (an earlier
 version).
 
-**Why.** On simulated 1,000-commit histories with 10% infrastructure noise, a
-failure that occurs one time in ten is found correctly 94% of the time and
-never wrongly; one-shot bisect is right 0.1% of the time and five reruns per
-probe 1%. Sampling until the r-th failure keeps the bound exact, because the
-chance of the r-th failure within n runs is P(Binomial(n, p) ≥ r); the fixed
-20-run calibration was 58% correct at p = 0.1
-(`results/bisect-simulation-fixed-calibration.jsonl`). The simulated
-baselines count infrastructure failures as test failures; a `git bisect run`
-script that exits 125 for them would do better, and is not simulated.
+**Why.** The rate of a flaky failure is not known in advance, and a fixed
+rerun count has to be chosen for the rarest one expected. On simulated
+1,000-commit histories with 10% infrastructure noise, `git bisect run` with
+N reruns per revision is right 99% of the time only once N fits the true
+rate: N = 10 at p = 0.5, but N = 100 at p = 0.1, which then costs 561 runs on
+a deterministic failure. Calibrating sizes each probe for the failure at
+hand: remex is right 94–100% of the time from p = 0.1 to 1, gave no wrong
+answer in any of those cells, and costs 50 runs on a deterministic failure.
+Sampling until the r-th failure keeps the bound exact, because the chance of
+the r-th failure within n runs is P(Binomial(n, p) ≥ r); the fixed 20-run
+calibration was 58% correct at p = 0.1
+(`results/bisect-simulation-fixed-calibration.jsonl`).
 
-**Cost.** Runs: a median of 725 at p = 0.1, with a p95 of 1,180 that exceeds
-the CLI's default budget of 1,000 (the simulation allows 5,000), and about
-four times one-shot bisect's cost for a deterministic failure.
+**Cost.** A tuned rerun count beats it: with N picked for the true p, git
+bisect is right 99.3–100% of the time for fewer runs than remex at every p
+tested, though it is occasionally wrong (up to 0.7%). remex instead ends
+inconclusive 4–6% of the time for flaky failures, when the final
+confirmation rejects a boundary that a passing bad probe produced. Runs: a
+median of 725 at p = 0.1 with a p95 of 1,180, inside the CLI's default
+budget of 2,000.
 
 ## bazel-remote unmodified for CAS and action cache
 
