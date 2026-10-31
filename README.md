@@ -202,15 +202,19 @@ these hardware runs are included in `results/`.
 ```bash
 scripts/bootstrap-bazel.sh && scripts/bootstrap-go.sh       # pinned Bazel 9.3 and Go
 make all             # scheduler, CLI and worker (CMake; `make worker-bazel` builds the worker with Bazel)
-make test            # Go tests with -race, and the worker's ctest
+make test            # Go tests with -race, the worker's ctest, and the Python tests
 scripts/run-local.sh # PostgreSQL + bazel-remote (Docker Compose), scheduler, 2 CPU + 1 RTL worker
 scripts/bazel-sample.sh cpp-history   # in another terminal: a remote Bazel build and test
 ```
 
-- **Requirements:** Linux x86-64, Docker Compose, a C++20 compiler, the
-  gRPC, protobuf, OpenSSL and Abseil development packages (see
-  [worker/README.md](worker/README.md)), and a delegated cgroup v2 subtree
-  for the current user.
+- **Requirements:** Linux x86-64, Go (the version in `go.mod`), Python 3,
+  Docker Compose, CMake and a C++20 compiler, the gRPC, protobuf, OpenSSL
+  and Abseil development packages, and a delegated cgroup v2 subtree for the
+  current user. On Ubuntu 24.04 the packages are `cmake g++ libgrpc++-dev
+  libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libssl-dev
+  libabsl-dev`. The fault tests also need `psql`.
+- **CI** (`.github/workflows/ci.yml`) runs `make go-vet` and `make go-test`
+  against a PostgreSQL service, `make worker-test`, and `make python-test`.
 - **GPU workers** (`REMEX_GPU=1`) also need an NVIDIA driver with NVML.
 - **Fault tests.** `tests/faults` holds fault-injection tests against real
   processes:

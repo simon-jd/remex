@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  go:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: remex
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: remex
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U remex -d remex"
+          --health-interval 2s --health-timeout 5s --health-retries 15
+    env:
+      REMEX_TEST_POSTGRES: postgres://remex:ci@127.0.0.1:5432/remex?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make go-vet
+      - run: make go-test
+
+  worker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the worker's build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake g++ \
+            libgrpc++-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc \
+            libssl-dev libabsl-dev
+      - run: make worker-test
+
+  python:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends protobuf-compiler libprotobuf-dev
+      - run: make python-test
