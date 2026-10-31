@@ -73,8 +73,10 @@ capped the PostgreSQL ledger at 104–124 actions/s across ten runs
 (`results/control-plane-per-mutation*.jsonl` and the `per-mutation` rows of
 `results/control-plane-group-commit.jsonl`) and put an fsync in front of
 every heartbeat (median 59–74 ms). Grouped, 27.5 changes share one
-transaction on average, and the ledger reaches 1,000–1,700 actions/s with
-heartbeats under 0.1 ms at the median and 3–5 ms at worst, while nothing a
+transaction on average, and the ledger reaches 1,000–1,700 actions/s in the
+runs made alternately with those (1,173–1,603 in the ten current runs of
+`results/control-plane.jsonl`), with heartbeats under 0.1 ms at the median
+and 3–10 ms at worst, while nothing a
 client sees can be lost in a crash, which an asynchronous commit cannot
 promise. Waiting for the observed position, not only for one's own change,
 matters: a stream must not report a completion that is applied in memory but

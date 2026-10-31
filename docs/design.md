@@ -150,7 +150,8 @@ committed, published). Made one at a time under the scheduler lock, they
 capped the ledger at 104–124 actions/s across ten load-test runs and put an
 fsync in front of every heartbeat. With group commit and 64 synthetic
 workers, 27.5 changes share each transaction and the ledger reaches
-1,000–1,700 actions/s. Each worker still waits for its own commits, so
+1,173–1,603 actions/s over ten runs (`results/control-plane.jsonl`). Each
+worker still waits for its own commits, so
 throughput is bound by commit latency: more concurrent callers make bigger
 groups.
 
