@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -283,6 +284,11 @@ func (s *Scheduler) auditContext(ctx context.Context, e *Execution, a *Attempt) 
 }
 
 // PublishPending retries publication of committed winners, oldest first.
+// A result that cannot be published, for example because its blobs were
+// evicted, does not hold back the others: every pending result is tried
+// and the failures are returned together, each naming its execution. It
+// stops early only when the scheduler has failed or ctx is done, since
+// every later attempt would fail the same way.
 func (s *Scheduler) PublishPending(ctx context.Context) error {
 	s.mu.Lock()
 	if s.failed != nil {
@@ -305,12 +311,21 @@ func (s *Scheduler) PublishPending(ctx context.Context) error {
 	}
 	ids = s.byLedgerOrder(ids)
 	s.mu.Unlock()
+	var failures []error
 	for _, id := range ids {
-		if err := s.publish(ctx, id, false); err != nil {
-			return err
+		err := s.publish(ctx, id, false)
+		if err == nil {
+			continue
+		}
+		failures = append(failures, fmt.Errorf("publish %s: %w", id, err))
+		s.mu.Lock()
+		failed := s.failed != nil
+		s.mu.Unlock()
+		if failed || ctx.Err() != nil {
+			break
 		}
 	}
-	return nil
+	return errors.Join(failures...)
 }
 func (s *Scheduler) Cancel(ctx context.Context, id string) (err error) {
 	var seen uint64

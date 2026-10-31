@@ -2,6 +2,8 @@ package scheduler
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -143,6 +145,47 @@ func TestIdleHistoryPublishPendingErrorBoundaries(t *testing.T) {
 				t.Fatalf("PublishPending = %v, writes=%d, state=%s", err, f.c.writes, e.State)
 			}
 		})
+	}
+}
+
+// One committed result whose blobs were evicted must not hold back the
+// recovery publication of the results committed after it.
+func TestPublishPendingContinuesPastAnEvictedResult(t *testing.T) {
+	f := setup(t, false)
+	f.c.updateError = status.Error(codes.Unavailable, "action cache unavailable")
+	var ids []string
+	var outputs []*re.Digest
+	for i := range 2 {
+		id := f.start(t, true)
+		lease := f.lease(t, "cpu1")
+		f.running(t, lease, "cpu1")
+		output := f.c.put([]byte(fmt.Sprintf("output %d", i)))
+		result := &re.ActionResult{OutputFiles: []*re.OutputFile{{Path: "out", Digest: output}}}
+		response, err := f.s.Complete(f.ctx, completion(lease, "cpu1", result))
+		if err != nil || response.Decision != w.CompleteResponse_ACCEPTED {
+			t.Fatalf("complete %d: %v %v", i, response, err)
+		}
+		ids, outputs = append(ids, id), append(outputs, output)
+	}
+	f.c.updateError = nil
+	delete(f.c.blobs, outputs[0].Hash) // the older result's output was evicted
+
+	err := f.s.PublishPending(f.ctx)
+	if status.Code(err) != codes.FailedPrecondition || !strings.Contains(err.Error(), ids[0]) || strings.Contains(err.Error(), ids[1]) {
+		t.Fatalf("PublishPending = %v, want only %s reported", err, ids[0])
+	}
+	ledger := f.s.Export()
+	if older, newer := ledger.execution(ids[0]).State, ledger.execution(ids[1]).State; older != "Committed" || newer != "Published" || f.c.writes != 1 {
+		t.Fatalf("states %s, %s with %d cache writes; want Committed, Published, 1", older, newer, f.c.writes)
+	}
+
+	// Once the blob is back, the next pass publishes the older result too.
+	f.c.put([]byte("output 0"))
+	if err := f.s.PublishPending(f.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if state := f.s.Export().execution(ids[0]).State; state != "Published" || f.c.writes != 2 {
+		t.Fatalf("older result %s after recovery, %d cache writes", state, f.c.writes)
 	}
 }
 
