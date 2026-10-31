@@ -19,36 +19,52 @@ not lost work.
 process: 64 synthetic workers loop Lease → Heartbeat → Complete against a
 ledger that already holds 0–5,000 finished executions, while a probe worker
 heartbeats one long-running action every 100 ms. `-stall 3s` makes every
-action-cache write take 3 s. Each cell is the range over two 20 s runs
-(`results/control-plane-group-commit.jsonl`, labels `group-commit-r1` and
-`group-commit-r2`):
+action-cache write take 3 s, and `-queue N` keeps N runnable actions queued
+ahead of the workers. `scripts/bench-control-plane.sh` ran each cell five
+times for 20 s (`results/control-plane.jsonl`); actions per second are the
+median with the range over the five runs:
 
-| Store | History | AC write stall | Actions/s | Probe heartbeat, median / worst | Attempts lost |
-|---|---|---|---|---|---|
-| PostgreSQL | 0 | – | 1,029–1,633 | <0.1 ms / 4.2–5.3 ms | 0 |
-| PostgreSQL | 1,000 | – | 1,003–1,711 | <0.1 ms / 3.4–4.3 ms | 0 |
-| PostgreSQL | 1,000 | 3 s | 21 | <0.1 ms / 1.9–2.8 ms | 0 |
-| memory | 0 | – | 15,434–16,884 | <0.1 ms / 18–56 ms | 0 |
-| memory | 1,000 | – | 14,239–14,958 | <0.3 ms / 20–70 ms | 0 |
-| memory | 5,000 | – | 15,042–24,413 | <0.1 ms / 23 ms | 0 |
-| memory | 1,000 | 3 s | 21 | <0.1 ms / 0.06–0.17 ms | 0 |
+| Store | History | Queued | AC write stall | Actions/s | Probe heartbeat, median / worst | Attempts lost |
+|---|---|---|---|---|---|---|
+| PostgreSQL | 0 | – | – | 1,479 (1,173–1,592) | <0.01 ms / 3.3–5.7 ms | 0 |
+| PostgreSQL | 1,000 | – | – | 1,500 (1,272–1,603) | <0.01 ms / 3.1–9.4 ms | 0 |
+| PostgreSQL | 1,000 | – | 3 s | 21 | <0.01 ms / 3.0–3.7 ms | 0 |
+| memory | 0 | – | – | 25,863 (22,077–27,511) | <0.02 ms / 49–249 ms | 0 |
+| memory | 1,000 | – | – | 27,030 (19,168–28,389) | <0.02 ms / 37–177 ms | 0 |
+| memory | 5,000 | – | – | 26,334 (20,586–27,406) | <0.02 ms / 33–303 ms | 0 |
+| memory | 1,000 | – | 3 s | 21 | <0.02 ms / 0.05–0.07 ms | 0 |
+| memory | 0 | 1,000 | – | 26,683 (24,183–29,480) | <0.01 ms / 73–221 ms | 0 |
+| memory | 0 | 10,000 | – | 26,603 (24,797–27,736) | <0.01 ms / 24–197 ms | 0 |
+| memory | 0 | 50,000 | – | 25,684 (24,895–28,986) | <0.01 ms / 81–321 ms | 0 |
 
 - **A slow cache.** With every action-cache write stalled for 3 s, each
   worker waits for its own write, so 64 workers cap the loop at
   64 / 3 s ≈ 21 actions/s. Nobody else waits: publication calls the cache
-  outside the scheduler lock, the probe's heartbeats stay under 3 ms, and no
+  outside the scheduler lock, the probe's heartbeats stay under 4 ms, and no
   lease expires.
 - **Group commit** puts 27.5 ledger changes in each PostgreSQL transaction
   on average, and a call answers once everything it observed is durable.
   Each synthetic worker still waits for its own commits, so the loop is
   bound by commit latency: more concurrent workers make bigger groups. With
   the in-memory store there is no fsync to share.
-- **What this does not show.** The load test is closed-loop: every worker
-  submits one action and then runs one, so the queue never holds more than
-  about 64 actions. The probe's heartbeats change nothing and get CONTINUE,
-  one of the two answers allowed to skip the durability wait
-  ([docs/design.md](docs/design.md)). Two runs per cell are too few for
-  confidence intervals.
+- **Deep queues.** Lease takes the oldest action from a per-platform queue,
+  so throughput does not depend on how much work is queued. Sorting every
+  runnable action on each Lease, as the scheduler did before, completed a
+  median of 1,640, 162 and 26 actions/s with 1,000, 10,000 and 50,000
+  queued, and the probe's heartbeat then waited up to 3.3 s
+  (`results/control-plane-deep-queue-sorted.jsonl`).
+- **What this does not show.** Arrival is closed-loop: every worker submits
+  one action and then runs one, so there is no open-loop arrival rate. The
+  probe's heartbeats change nothing and get CONTINUE, one of the two answers
+  allowed to skip the durability wait ([docs/design.md](docs/design.md)).
+  With the in-memory store the worst probe heartbeat is tens to hundreds of
+  milliseconds in every cell, queued work or not. Ranges are over five
+  runs, not confidence intervals.
+- **Where.** One host: Intel Core i9-13900K (32 threads), 123 GiB of RAM,
+  a Samsung 990 EVO Plus NVMe, Linux 7.0, Go 1.27.2, and PostgreSQL 18.6 in
+  a container with default settings (fsync and synchronous_commit on,
+  wal_sync_method fdatasync, shared_buffers 128MB). Every record carries its
+  environment and the commit it measured.
 
 **Scheduler restart.** `tests/faults/bazel_restart_test.py` runs a real
 Bazel 9.3 build against a scheduler with a PostgreSQL ledger and 2 s leases,

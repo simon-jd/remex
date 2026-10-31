@@ -4,7 +4,9 @@ Each file holds one JSON object per run or per simulated configuration.
 
 | File | Produced by | What it measured |
 |---|---|---|
-| `control-plane-group-commit.jsonl` | `scripts/bench-control-plane.sh` (`cmd/remex-loadtest`) | `group-commit-r1`, `group-commit-r2`: the scheduler in this repository. `per-mutation-r1`, `per-mutation-r2`: an earlier version of the scheduler that made one PostgreSQL commit per ledger mutation under the scheduler lock. Two runs of each, in the order listed. |
+| `control-plane.jsonl` | `scripts/bench-control-plane.sh` (`cmd/remex-loadtest`) | The scheduler in this repository: five runs of every cell, including deep queues. Each record names the commit it measured and its environment (CPU, memory, disk, kernel, Go, PostgreSQL version and settings). |
+| `control-plane-deep-queue-sorted.jsonl` | `cmd/remex-loadtest -queue` with the bench script's flags | The deep-queue cells at the commit before Lease used per-platform queues, when it sorted every runnable execution on each call (commit recorded in each row). |
+| `control-plane-group-commit.jsonl` | `scripts/bench-control-plane.sh` (`cmd/remex-loadtest`) | `group-commit-r1`, `group-commit-r2`: the scheduler after group commit was added, before the environment and commit were recorded. `per-mutation-r1`, `per-mutation-r2`: an earlier version of the scheduler that made one PostgreSQL commit per ledger mutation under the scheduler lock. Two runs of each, in the order listed. |
 | `control-plane-per-mutation.jsonl`, `control-plane-per-mutation-repeats.jsonl` | the same load test | More runs of the one-commit-per-mutation version (7 and 4 rows). |
 | `control-plane-global-lock.jsonl` | the same load test | An earlier version of the scheduler that copied the whole ledger on every mutation and called the action cache while holding the scheduler lock. |
 | `scheduler-restart.jsonl` | `tests/faults/bazel_restart_test.py` | `"worker": "after"`: the worker in this repository. `"worker": "before"`: an earlier worker whose Complete gave up after three immediate tries, so an attempt that was uploading when the scheduler died was run again. `worker_sha256` and `scheduler_sha256` identify the binaries used. |
@@ -13,9 +15,11 @@ Each file holds one JSON object per run or per simulated configuration.
 
 The earlier versions are not part of this repository; their records are kept
 because [docs/design-tradeoffs.md](../docs/design-tradeoffs.md) cites them as
-the reason for a design decision. The README's headline numbers come only
-from rows that measured the code here.
+the reason for a design decision. The README's control-plane table comes
+from `control-plane.jsonl`.
 
 `scripts/bench-control-plane.sh` runs PostgreSQL in a local
-`postgres:18-alpine` container on the same host. The records do not capture
-the hardware or the PostgreSQL configuration.
+`postgres:18-alpine` container on the same host. Only `control-plane.jsonl`
+and `control-plane-deep-queue-sorted.jsonl` record the hardware, the
+PostgreSQL configuration and the commit; the older control-plane files do
+not.

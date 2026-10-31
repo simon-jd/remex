@@ -31,6 +31,30 @@ consensus round per change and a far larger correctness argument.
 until a supervisor restarts the process; recovery reloads the ledger and
 gives in-flight leases a grace period.
 
+## Per-platform run queues
+
+**Decision.** Keep runnable executions in a min-heap of ledger positions for
+each distinct platform. A Lease looks at the head of every queue whose
+platform the worker satisfies and takes the oldest; entries whose execution
+is no longer runnable are dropped when they reach a head.
+
+**Alternatives.** Sort every runnable execution on each Lease and take the
+first match (what the scheduler did before); one global queue scanned until
+a match.
+
+**Why.** Lease runs under the scheduler lock, so its cost is paid by every
+other RPC. Sorting made it O(n log n) in the queue length: with 50,000
+actions queued the load test completed a median of 26 actions/s and the
+probe's heartbeat waited up to 3.3 s. With the heaps the same cell runs at a
+median of 25,684 actions/s, as fast as with an empty queue. A global queue
+would still scan past work for other pools, such as GPU actions waiting
+while CPU workers poll.
+
+**Cost.** A Lease is linear in the number of distinct platforms, which is
+assumed to be small. Ledger positions are creation order, so a retried
+execution keeps its place; that depends on loading executions in creation
+order after a restart.
+
 ## Group commit
 
 **Decision.** A mutation applies its change to the in-memory ledger and
