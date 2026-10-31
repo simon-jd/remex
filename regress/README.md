@@ -40,7 +40,7 @@ Bisection input:
 ```json
 {
   "good":"GOOD_COMMIT", "bad":"BAD_COMMIT",
-  "bisect":{"alpha":0.05,"calibration_failures":10,"calibration_runs":200,"budget":1000,"seed":0},
+  "bisect":{"alpha":0.05,"calibration_failures":10,"calibration_runs":200,"budget":2000,"seed":0},
   "runner":{"repository":"/absolute/repository","bazel":"bazel","targets":["//:test"],"flags":["--remote_executor=grpc://localhost:18980","--remote_cache=grpc://localhost:19092"],"scheduler_admin":"http://localhost:18081","evidence_directory":"/absolute/evidence/probes"}
 }
 ```

@@ -94,7 +94,9 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 		c.CalibrationRuns = 200
 	}
 	if c.Budget == 0 {
-		c.Budget = 1000
+		// Covers the 95th percentile of runs that cmd/remex-bisectsim needs
+		// for a 10% flake in 1,000 commits with 10% infrastructure noise.
+		c.Budget = 2000
 	}
 	r := BisectResult{Conclusion: "INCONCLUSIVE", Revisions: append([]string(nil), c.Revisions...), Signature: c.Signature, Budget: c.Budget, Probes: []Probe{}}
 	if len(c.Revisions) < 2 || c.Alpha <= 0 || c.Alpha >= 1 || c.CalibrationRuns < 1 || c.CalibrationRuns > 10000 || c.CalibrationFailures < 1 || c.Budget < 1 || runner == nil {
