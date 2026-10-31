@@ -1,0 +1,7 @@
+.*
+!.bazelversion
+build
+evidence/runs
+**/bazel-*
+!scripts/bazel-*.sh
+!docs/bazel-*.md

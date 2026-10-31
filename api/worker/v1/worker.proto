@@ -1,0 +1,59 @@
+syntax = "proto3";
+package remex.worker.v1;
+option go_package = "github.com/simon-jd/remex/api/worker/v1;workerv1";
+import "google/protobuf/timestamp.proto";
+
+// Control-plane contract. Action and ActionResult use the official REAPI v2
+// protobuf wire format. SHA256 is the only supported digest function.
+service WorkerService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Lease(LeaseRequest) returns (LeaseResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc Complete(CompleteRequest) returns (CompleteResponse);
+}
+message Digest { string hash = 1; int64 size_bytes = 2; }
+message RegisterRequest { string worker_id = 1; map<string,string> properties = 2; string device_snapshot_json = 3; }
+message RegisterResponse { int64 lease_duration_ms = 1; int64 heartbeat_interval_ms = 2; }
+// Properties are freshly verified by the worker before every Lease RPC.
+message LeaseRequest { string worker_id = 1; map<string,string> properties = 2; string device_snapshot_json = 3; }
+message LeaseResponse {
+  bool available = 1;
+  string execution_id = 2;
+  string attempt_id = 3;
+  int64 epoch = 4;
+  int64 lease_duration_ms = 5;
+  string instance_name = 6;
+  Digest action_digest = 7;
+  bytes action = 8;
+  bytes command = 9;
+  string cas_endpoint = 10;
+  // Original durable enqueue time, retained across retries and recovery.
+  // Older schedulers omit this field; workers must not invent a timestamp.
+  google.protobuf.Timestamp queued_timestamp = 11;
+}
+message HeartbeatRequest {
+  string worker_id = 1; string attempt_id = 2; int64 epoch = 3;
+  enum Phase { MATERIALIZING = 0; RUNNING = 1; UPLOADING = 2; }
+  Phase phase = 4;
+}
+message HeartbeatResponse {
+  enum Decision { CONTINUE = 0; CANCEL = 1; FENCED = 2; }
+  Decision decision = 1; int64 lease_duration_ms = 2;
+}
+message CompleteRequest {
+  string worker_id = 1; string attempt_id = 2; int64 epoch = 3;
+  bytes action_result = 4;
+  // google.rpc.Code numeric value, with OK=0.
+  int32 status_code = 5; string status_message = 6;
+  // Required even for failed execution: cgroup.kill then populated=0.
+  bool cgroup_empty = 7;
+  int64 oom_kill = 8;
+  string device_snapshot_json = 9;
+  string resource_usage_json = 10;
+  string failure_category = 11;
+  string attempt_dir = 12;
+}
+message CompleteResponse {
+  enum Decision { ACCEPTED = 0; FENCED = 1; REJECTED = 2; }
+  Decision decision = 1; string message = 2;
+}

@@ -1,0 +1,24 @@
+# Optional, explicit single-GPU fallback when the NVIDIA runtime hook cannot
+# start. Layer AFTER compose.yaml + worker-compose.yaml. Compose must support
+# the !reset merge tag. No host driver files or services are modified.
+services:
+  gpu-1:
+    runtime: runc
+    deploy:
+      resources:
+        reservations:
+          devices: !reset []
+    devices:
+      - "${REMEX_GPU_NODE:-/dev/nvidia0}:/dev/nvidia0:rw"
+      - "/dev/nvidiactl:/dev/nvidiactl:rw"
+      - "/dev/nvidia-uvm:/dev/nvidia-uvm:rw"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: void
+      LD_LIBRARY_PATH: /remex-nvidia:/usr/local/cuda/lib64
+    volumes:
+      - type: bind
+        source: ${REMEX_NVIDIA_LIB_DIR:?set the verified matching NVIDIA userspace library directory}
+        target: /remex-nvidia
+        read_only: true
+        bind:
+          create_host_path: false

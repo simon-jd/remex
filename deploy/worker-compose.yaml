@@ -1,0 +1,88 @@
+# Opt-in extension; see worker/README.md (Run) before starting either profile.
+# Tested with rootful Docker, UID 0 / project GID, no capabilities, and write
+# access only to each project's cgroup bind. UID 1000 fails migration checks on
+# the tested host. scripts/preflight.sh reports the host's cgroup and tool state.
+# No service receives SYS_ADMIN, a privileged flag, or a writable host root.
+x-worker: &worker
+  image: ${REMEX_WORKER_IMAGE:?set REMEX_WORKER_IMAGE to an immutable image reference}
+  user: "${REMEX_WORKER_UID:-0}:${REMEX_WORKER_GID:-1000}"
+  profiles: [workers]
+  cgroup: host
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  init: true
+  read_only: true
+  tmpfs: [/tmp:exec, /workspace:exec]
+  stop_grace_period: 30s
+  depends_on:
+    scheduler:
+      condition: service_started
+  environment:
+    REMEX_TEST_CGROUP_ROOT: /remex-cgroup
+  volumes:
+    - type: bind
+      source: ${REMEX_CGROUP_ROOT:?set REMEX_CGROUP_ROOT to a project-only delegated subtree}
+      target: /remex-cgroup
+      bind:
+        create_host_path: false
+
+services:
+  cpu-1:
+    <<: *worker
+    command: ["--id", "cpu-1", "--scheduler", "scheduler:8980", "--cas", "bazel-remote:9092", "--root", "/data", "--cgroup-root", "/remex-cgroup", "--property", "pool=cpu", "--property", "image=${REMEX_IMAGE:?set REMEX_IMAGE to the image digest}"]
+    volumes:
+      - type: bind
+        source: ${REMEX_CGROUP_ROOT:?set REMEX_CGROUP_ROOT}/cpu-1
+        target: /remex-cgroup
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${REMEX_WORKER_DATA:?set REMEX_WORKER_DATA}/cpu-1
+        target: /data
+        bind: {create_host_path: false}
+  cpu-2:
+    <<: *worker
+    command: ["--id", "cpu-2", "--scheduler", "scheduler:8980", "--cas", "bazel-remote:9092", "--root", "/data", "--cgroup-root", "/remex-cgroup", "--property", "pool=cpu", "--property", "image=${REMEX_IMAGE:?set REMEX_IMAGE}"]
+    volumes:
+      - type: bind
+        source: ${REMEX_CGROUP_ROOT:?set REMEX_CGROUP_ROOT}/cpu-2
+        target: /remex-cgroup
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${REMEX_WORKER_DATA:?set REMEX_WORKER_DATA}/cpu-2
+        target: /data
+        bind: {create_host_path: false}
+  rtl-1:
+    <<: *worker
+    command: ["--id", "rtl-1", "--scheduler", "scheduler:8980", "--cas", "bazel-remote:9092", "--root", "/data", "--cgroup-root", "/remex-cgroup", "--property", "pool=rtl", "--property", "image=${REMEX_IMAGE:?set REMEX_IMAGE}"]
+    volumes:
+      - type: bind
+        source: ${REMEX_CGROUP_ROOT:?set REMEX_CGROUP_ROOT}/rtl-1
+        target: /remex-cgroup
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${REMEX_WORKER_DATA:?set REMEX_WORKER_DATA}/rtl-1
+        target: /data
+        bind: {create_host_path: false}
+  gpu-1:
+    <<: *worker
+    profiles: [gpu]
+    command: ["--id", "gpu-1", "--scheduler", "scheduler:8980", "--cas", "bazel-remote:9092", "--root", "/data", "--cgroup-root", "/remex-cgroup", "--property", "pool=gpu", "--property", "image=${REMEX_IMAGE:?set REMEX_IMAGE}"]
+    environment:
+      REMEX_TEST_CGROUP_ROOT: /remex-cgroup
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${REMEX_GPU_DEVICE:-0}"]
+              capabilities: [gpu]
+    volumes:
+      - type: bind
+        source: ${REMEX_CGROUP_ROOT:?set REMEX_CGROUP_ROOT}/gpu-1
+        target: /remex-cgroup
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${REMEX_WORKER_DATA:?set REMEX_WORKER_DATA}/gpu-1
+        target: /data
+        bind: {create_host_path: false}

@@ -1,0 +1,6 @@
+module(name = "remex_rtl", version = "0.1.0")
+bazel_dep(name = "rules_cc", version = "0.2.26")
+bazel_dep(name = "rules_verilator", version = "1.1.2")
+bazel_dep(name = "rules_verilog", version = "1.4.2")
+bazel_dep(name = "verilator", version = "5.046.bcr.5")
+register_toolchains("@rules_verilator//verilator:verilator_toolchain")

@@ -1,0 +1,35 @@
+name: remex
+services:
+  postgres:
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_USER: remex
+      POSTGRES_PASSWORD: remex-local-only
+      POSTGRES_DB: remex
+    ports: ["127.0.0.1:${REMEX_POSTGRES_PORT:-15432}:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U remex -d remex"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  bazel-remote:
+    image: buchgr/bazel-remote-cache:v2.6.3@sha256:adea2ff6dcd59890a1e9c3470e19cf7f2c031502dc0e2d13e12b1dd505762c05
+    command: ["--dir=/data", "--max_size=${REMEX_CACHE_GB:-32}", "--http_address=0.0.0.0:8080", "--grpc_address=0.0.0.0:9092", "--enable_ac_key_instance_mangling"]
+    ports: ["127.0.0.1:${REMEX_CAS_PORT:-19092}:9092", "127.0.0.1:${REMEX_CACHE_HTTP_PORT:-18080}:8080"]
+    volumes: ["cache-data:/data"]
+  scheduler:
+    profiles: ["control"]
+    build:
+      context: ..
+      dockerfile: deploy/scheduler.Dockerfile
+    command: ["--listen=:8980", "--admin=:8081", "--cas=bazel-remote:9092", "--postgres=postgres://remex:remex-local-only@postgres:5432/remex?sslmode=disable"]
+    ports: ["127.0.0.1:${REMEX_EXEC_PORT:-18980}:8980", "127.0.0.1:${REMEX_ADMIN_PORT:-18081}:8081"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bazel-remote:
+        condition: service_started
+volumes:
+  postgres-data:
+  cache-data:

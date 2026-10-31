@@ -1,0 +1,58 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+package(default_visibility = ["//visibility:public"])
+cc_library(
+    name = "core",
+    srcs = ["src/core.cc", "src/process.cc", "src/nvml.cc", "src/remote.cc", "src/polling.cc"],
+    hdrs = glob(["include/remex/*.h"]),
+    includes = ["include"],
+    copts = ["-std=c++20", "-Wall", "-Wextra"],
+    linkopts = ["-ldl", "-pthread"],
+    deps = [
+        "//worker/third_party:remote_execution_cc_grpc",
+        "//worker/third_party:bytestream_cc_grpc",
+        "@boringssl//:crypto",
+        "@com_github_grpc_grpc//:grpc++",
+    ],
+)
+cc_binary(
+    name = "remex-worker",
+    srcs = ["src/main.cc"],
+    copts = ["-std=c++20"],
+    deps = [":core", "//api/worker/v1:worker_cc_grpc", "@com_google_protobuf//:protobuf"],
+)
+cc_test(
+    name = "worker-tests",
+    srcs = ["tests/core_test.cc"],
+    copts = ["-std=c++20"],
+    deps = [":core"],
+)
+cc_test(
+    name = "cgroup-tests",
+    srcs = ["tests/cgroup_test.cc"],
+    copts = ["-std=c++20"],
+    tags = ["manual", "requires-cgroup-delegation"],
+    deps = [":core"],
+)
+cc_test(
+    name = "remote-tests",
+    srcs = ["tests/remote_test.cc"],
+    copts = ["-std=c++20"],
+    deps = [":core"],
+)
+
+cc_test(
+    name = "polling-tests",
+    srcs = ["tests/polling_test.cc"],
+    copts = ["-std=c++20"],
+    deps = [":core"],
+)
+
+cc_test(
+    name = "nvml-tests",
+    srcs = ["tests/nvml_test.cc"],
+    copts = ["-std=c++20"],
+    tags = ["manual", "requires-gpu"],
+    deps = [":core"],
+)

@@ -1,0 +1,13 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+
+verilog_library(name = "fifo_sv", srcs = ["fifo.sv"], top_module = "fifo")
+verilator_cc_library(name = "fifo_model", module = ":fifo_sv", vopts = ["-Wno-fatal"])
+cc_test(
+    name = "fifo_test",
+    srcs = ["fifo_test.cc"],
+    deps = [":fifo_model"],
+    tags = ["remex-hw", "no-remote-cache"],
+    exec_properties = {"pool": "rtl", "OSFamily": "Linux", "ISA": "x86-64"},
+)

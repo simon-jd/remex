@@ -1,0 +1,21 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_cuda//cuda:defs.bzl", "cuda_library")
+
+cuda_library(
+    name = "race_kernel",
+    srcs = ["race_test.cu"],
+    alwayslink = True,
+)
+cc_test(
+    name = "race_test",
+    deps = [":race_kernel"],
+    tags = ["remex-hw", "no-remote-cache"],
+    exec_properties = {
+        "pool": "cpu",
+        "test.pool": "gpu",
+        "OSFamily": "Linux",
+        "ISA": "x86-64",
+        "test.gpu.cc": "8.9",
+        "test.gpu.driver_major": "595",
+    },
+)

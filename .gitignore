@@ -1,0 +1,27 @@
+.cache/
+.deps/
+.tools/
+/build/
+**/bazel-*
+!/scripts/bazel-*.sh
+!/docs/bazel-*.md
+**/CMakeFiles/
+**/CMakeCache.txt
+*.log
+evidence/runs/
+!evidence/*.md
+deploy/.env
+__pycache__/
+
+# Local tooling and credentials.
+.ruff_cache/
+.pytest_cache/
+.venv/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pt
+*.safetensors
+*.gguf
