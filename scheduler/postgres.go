@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -103,7 +104,9 @@ func readLedger(ctx context.Context, conn *pgx.Conn) (*Ledger, error) {
 	l := NewLedger()
 	// Earlier versions atomically wrote the same normalized tables plus a full
 	// snapshot. Read those tables so upgrades do not depend on stale snapshots.
-	rows, err := tx.Query(ctx, "SELECT data FROM executions ORDER BY data->>'created_at', id")
+	// Rows are put in creation order once the events are read; see
+	// sortByCreation.
+	rows, err := tx.Query(ctx, "SELECT data FROM executions ORDER BY id")
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +176,40 @@ func readLedger(ctx context.Context, conn *pgx.Conn) (*Ledger, error) {
 	if err != nil {
 		return nil, err
 	}
+	sortByCreation(l)
 	return l, nil
+}
+
+// sortByCreation puts executions in the order they were created: by the
+// sequence of the first event that names each one, its execution_created
+// event, which is appended under the scheduler lock. That is the order the
+// scheduler kept them in memory, so leases and recovery publication go
+// oldest first after a restart too. The stored created_at text cannot give
+// this order: RFC 3339 drops trailing zeros from the fraction, so
+// "12:00:00.12Z" sorts before "12:00:00.1Z" and "12:00:01Z" after
+// "12:00:01.5Z". Executions that no event names, which only hand-built
+// ledgers have, follow by creation time and then ID.
+func sortByCreation(l *Ledger) {
+	first := make(map[string]int64, len(l.Executions))
+	for _, ev := range l.Events {
+		if _, seen := first[ev.ExecutionID]; ev.ExecutionID != "" && !seen {
+			first[ev.ExecutionID] = ev.Sequence
+		}
+	}
+	sort.SliceStable(l.Executions, func(i, j int) bool {
+		a, b := l.Executions[i], l.Executions[j]
+		sa, namedA := first[a.ID]
+		sb, namedB := first[b.ID]
+		switch {
+		case namedA != namedB:
+			return namedA
+		case namedA && sa != sb:
+			return sa < sb
+		case !a.CreatedAt.Equal(b.CreatedAt):
+			return a.CreatedAt.Before(b.CreatedAt)
+		}
+		return a.ID < b.ID
+	})
 }
 func (p *PostgresStore) Save(caller context.Context, c *Change) error {
 	p.mu.Lock()
