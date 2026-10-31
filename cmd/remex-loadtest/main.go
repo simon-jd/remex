@@ -8,8 +8,12 @@
 // scheduler because their lease ran out while they waited, and the number
 // of ledger changes per store transaction. -stall makes every action-cache
 // write take that long, to measure what a slow cache does to everyone else.
+// -queue keeps that many runnable executions queued ahead of the workers:
+// each worker submits one action and leases the oldest, so the queue stays
+// that deep and every Lease has to find its work behind it.
 //
-// It uses only the scheduler's exported API.
+// Each record also carries the host, Go and PostgreSQL environment and the
+// -commit it was given. It uses only the scheduler's exported API.
 package main
 
 import (
@@ -133,6 +137,11 @@ func main() {
 	stall := flag.Duration("stall", 0, "latency of every action-cache write")
 	dsn := flag.String("postgres", "", "PostgreSQL DSN; empty uses the in-memory store")
 	label := flag.String("label", "", "free-form label copied into the output")
+	queue := flag.Int("queue", 0, "runnable executions kept queued ahead of the workers")
+	run := flag.Int("run", 0, "repetition number copied into the output")
+	commit := flag.String("commit", "", "source commit of this build, copied into the output")
+	extra := settings{}
+	flag.Var(extra, "env", "key=value added to the recorded environment (repeatable)")
 	flag.Parse()
 	ctx := context.Background()
 	var store scheduler.Store = scheduler.NewMemoryStore()
@@ -178,6 +187,11 @@ func main() {
 		}
 	}
 	c.stall = *stall
+	for range *queue {
+		if err := h.submit(); err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	// The probe holds one long-running action and heartbeats it every 100 ms.
 	if err := h.submit(); err != nil {
@@ -258,12 +272,27 @@ func main() {
 	}
 	ms := func(d time.Duration) float64 { return float64(d.Microseconds()) / 1000 }
 	out := map[string]any{
-		"label": *label, "store": map[bool]string{true: "postgres", false: "memory"}[*dsn != ""],
-		"workers": *workers, "history": *history, "stall_ms": ms(*stall), "seconds": elapsed.Seconds(),
+		"label":       *label,
+		"run":         *run,
+		"commit":      *commit,
+		"environment": environment(ctx, *dsn, extra),
+		"store":       map[bool]string{true: "postgres", false: "memory"}[*dsn != ""],
+		"workers":     *workers,
+		"history":     *history,
+		"queue":       *queue,
+		"stall_ms":    ms(*stall),
+		"seconds":     elapsed.Seconds(),
+
 		"actions_per_second": float64(completed.Load()) / elapsed.Seconds(),
-		"heartbeat_ms":       map[string]float64{"p50": ms(percentile(probe, 0.5)), "p99": ms(percentile(probe, 0.99)), "max": ms(probe[len(probe)-1])},
-		"heartbeats":         len(probe), "heartbeats_over_1s": over,
-		"attempts_lost": h.lost.Load(), "probe_lost": probeLost,
+		"heartbeat_ms": map[string]float64{
+			"p50": ms(percentile(probe, 0.5)),
+			"p99": ms(percentile(probe, 0.99)),
+			"max": ms(probe[len(probe)-1]),
+		},
+		"heartbeats":         len(probe),
+		"heartbeats_over_1s": over,
+		"attempts_lost":      h.lost.Load(),
+		"probe_lost":         probeLost,
 		// Ledger changes per store transaction: the group-commit batch size.
 		"changes_per_write": float64(changesAfter-changesBefore) / float64(max(writesAfter-writesBefore, 1)),
 	}
