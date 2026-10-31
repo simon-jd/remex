@@ -62,8 +62,13 @@ void ControlRpc(grpc::ClientContext& ctx, std::chrono::milliseconds duration = s
 class LeaseGuard {
  public:
   LeaseGuard(w::WorkerService::Stub& stub, const Config& config, const w::LeaseResponse& lease, Clock::time_point lease_start, std::int64_t interval)
-      :stub_(stub),worker_(config.id),attempt_(lease.attempt_id()),epoch_(lease.epoch()),
-       expiry_(lease_start + std::chrono::milliseconds(lease.lease_duration_ms())), interval_(std::clamp<std::int64_t>(interval, 50, std::max<std::int64_t>(50,lease.lease_duration_ms()/3))) {
+      : stub_(stub),
+        worker_(config.id),
+        attempt_(lease.attempt_id()),
+        epoch_(lease.epoch()),
+        expiry_(lease_start + std::chrono::milliseconds(lease.lease_duration_ms())),
+        interval_(std::clamp<std::int64_t>(interval, 50,
+                                          std::max<std::int64_t>(50, lease.lease_duration_ms() / 3))) {
     if(lease.lease_duration_ms() < 150) throw Error("lease duration must be at least 150 ms");
     thread_=std::thread([this] {
       auto wait=std::chrono::milliseconds(interval_);
@@ -159,7 +164,10 @@ void Attempt(w::WorkerService::Stub& stub,const Config& config,const w::LeaseRes
     for(const auto& p:outputs) {ValidateRelative(p,true);auto out=SafePath(cwd,p,true);fs::create_directories(out.parent_path());}
     auto timeout=std::chrono::milliseconds(0);
     if(action.has_timeout()) {
-      if(action.timeout().seconds()<0 || action.timeout().nanos()<0 || action.timeout().nanos()>=1000000000 || action.timeout().seconds()>86400*30LL)throw Error("invalid or over-30-day action timeout");
+      const auto& limit = action.timeout();
+      if (limit.seconds() < 0 || limit.nanos() < 0 || limit.nanos() >= 1000000000 ||
+          limit.seconds() > 86400 * 30LL)
+        throw Error("invalid or over-30-day action timeout");
       timeout=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::seconds(action.timeout().seconds())+std::chrono::nanoseconds(action.timeout().nanos()));
       if(timeout.count()==0)timeout=std::chrono::milliseconds(1);
     }
@@ -207,7 +215,18 @@ void Attempt(w::WorkerService::Stub& stub,const Config& config,const w::LeaseRes
 }
 int Main(int argc,char** argv) {
   const auto config=Parse(argc,argv);
-  if(config.probe) {const auto device=ProbeDevices(config.properties);std::cout<<"{\"properties\":{";bool first=true;for(const auto& [k,v]:device.properties){if(!first)std::cout<<',';first=false;std::cout<<JsonEscape(k)<<':'<<JsonEscape(v);}std::cout<<"},\"device\":"<<device.json<<"}\n";return 0;}
+  if (config.probe) {
+    const auto device = ProbeDevices(config.properties);
+    std::cout << "{\"properties\":{";
+    bool first = true;
+    for (const auto& [k, v] : device.properties) {
+      if (!first) std::cout << ',';
+      first = false;
+      std::cout << JsonEscape(k) << ':' << JsonEscape(v);
+    }
+    std::cout << "},\"device\":" << device.json << "}\n";
+    return 0;
+  }
   if(config.cgroup_root.empty())throw Error("--cgroup-root requires an explicitly delegated cgroup v2 subtree");
   {Cgroup preflight(config.cgroup_root,"remex-check-"+UniqueID());preflight.KillAndWait();}
   if(config.check) {std::cout<<"cgroup v2 kill and empty verification passed\n";return 0;}
@@ -254,4 +273,14 @@ int Main(int argc,char** argv) {
   return 0;
 }
 }
-int main(int argc,char** argv) {std::signal(SIGINT,remex::Signal);std::signal(SIGTERM,remex::Signal);std::signal(SIGPIPE,SIG_IGN);try{return remex::Main(argc,argv);}catch(const std::exception& error){std::cerr<<"remex-worker: "<<error.what()<<'\n';return 1;}}
+int main(int argc, char** argv) {
+  std::signal(SIGINT, remex::Signal);
+  std::signal(SIGTERM, remex::Signal);
+  std::signal(SIGPIPE, SIG_IGN);
+  try {
+    return remex::Main(argc, argv);
+  } catch (const std::exception& error) {
+    std::cerr << "remex-worker: " << error.what() << '\n';
+    return 1;
+  }
+}
