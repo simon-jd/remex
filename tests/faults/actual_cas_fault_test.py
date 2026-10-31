@@ -23,6 +23,8 @@ import uuid
 from verify_capture_fault import verify as verify_original_fault_frames
 
 ROOT = Path(__file__).resolve().parents[2]
+# The worker that make worker-build produces; REMEX_TEST_WORKER_BINARY overrides it.
+WORKER = Path(os.environ.get("REMEX_TEST_WORKER_BINARY", ROOT / "build/worker/remex-worker"))
 IMAGE = "buchgr/bazel-remote-cache:v2.6.3@sha256:adea2ff6dcd59890a1e9c3470e19cf7f2c031502dc0e2d13e12b1dd505762c05"
 
 
@@ -138,7 +140,7 @@ def main():
         if args.fault == "worker-before-complete":
             worker_cas = gate_proxy
             launch([ROOT / "build/bin/remex-test-uploadgate", "--listen", gate_proxy, "--upstream", cache_proxy, "--digest", hashlib.sha256(stderr.encode()).hexdigest(), "--observed", output / "gate-observed.json"], "uploadgate.log")
-        worker_command = [ROOT / "build/worker-resilience/remex-worker", "--scheduler", lease_proxy, "--cas", worker_cas, "--cgroup-root", cgroup, "--root", work / "worker", "--id", "independent-" + token, "--property", "pool=cpu"]
+        worker_command = [WORKER, "--scheduler", lease_proxy, "--cas", worker_cas, "--cgroup-root", cgroup, "--root", work / "worker", "--id", "independent-" + token, "--property", "pool=cpu"]
         worker = launch(worker_command, "worker-fault.log")
         wait_for(lambda: "registered worker=" in (output / "worker-fault.log").read_text(), 10, "real worker registration before Execute")
         command = [ROOT / ".tools/bazel.official", "--batch", "--ignore_all_rc_files", "--output_user_root=" + str(work / "bazel-state"), "build", "//:probe", "--repository_cache=" + str(ROOT / ".cache/bazel/cache/repos/v1"), "--remote_executor=grpc://" + address, "--remote_cache=grpc://" + cache_proxy, "--remote_instance_name=" + container, "--noremote_accept_cached", "--noremote_local_fallback", "--spawn_strategy=remote", "--jobs=1", "--remote_retries=0", "--remote_timeout=60s"]
@@ -270,7 +272,7 @@ def main():
             cgroup.rmdir()
         if database_created:
             subprocess.run(["psql", args.postgres, "-v", "ON_ERROR_STOP=1", "-c", "DROP DATABASE " + database], check=True, capture_output=True)
-        save(output / "environment.json", {"cache_image": IMAGE, "fault": args.fault, "cache_max_gib": 1, "work": str(work), "binary_sha256": {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in ["build/bin/remex-scheduler", "build/worker-resilience/remex-worker", "build/bin/remex-record", "build/bin/remex-adapt", "build/bin/remex-checker"]}})
+        save(output / "environment.json", {"cache_image": IMAGE, "fault": args.fault, "cache_max_gib": 1, "work": str(work), "binary_sha256": {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in ["build/bin/remex-scheduler", os.path.relpath(WORKER, ROOT), "build/bin/remex-record", "build/bin/remex-adapt", "build/bin/remex-checker"]}})
 
 
 if __name__ == "__main__":

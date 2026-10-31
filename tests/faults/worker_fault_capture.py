@@ -20,6 +20,8 @@ import urllib.request
 import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
+# The worker that make worker-build produces; REMEX_TEST_WORKER_BINARY overrides it.
+WORKER = Path(os.environ.get("REMEX_TEST_WORKER_BINARY", ROOT / "build/worker/remex-worker"))
 
 
 def main():
@@ -94,7 +96,7 @@ def main():
         wait_for(healthy, 10, "own scheduler health")
         recorder = launch([ROOT / "build/bin/remex-record", "--cache-listen", cache, "--cache-target", args.cas, "--worker-listen", worker_address, "--worker-target", address, "--ledger-url", admin + "/audit/durable-export", "--cgroup-root", cgroup, "--out", output / "raw-capture.jsonl"], "recorder.log")
         wait_for(lambda: (output / "recorder.log").read_text().count("->") == 2, 10, "both recorder listeners")
-        worker = launch([ROOT / "build/worker-resilience/remex-worker", "--scheduler", worker_address, "--cas", cache, "--root", work / "worker", "--cgroup-root", cgroup, "--id", "independent-" + token, "--property", "pool=cpu", "--once"], "worker.log")
+        worker = launch([WORKER, "--scheduler", worker_address, "--cas", cache, "--root", work / "worker", "--cgroup-root", cgroup, "--id", "independent-" + token, "--property", "pool=cpu", "--once"], "worker.log")
         wait_for(lambda: "registered worker=" in (output / "worker.log").read_text(), 10, "actual worker registration")
         timeout = "300ms"
         argv = ["/bin/bash", "-c", "set -m; sleep 60 & echo REMEX_CHILD:$! >&2; wait"]
@@ -171,7 +173,7 @@ def main():
             cgroup.rmdir()
         if database_created:
             subprocess.run(["psql", args.postgres, "-v", "ON_ERROR_STOP=1", "-c", "DROP DATABASE " + database], check=True, capture_output=True)
-        save("environment.json", {"binary_sha256": {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in ("build/bin/remex-scheduler", "build/worker-resilience/remex-worker", "build/bin/remex-record", "build/bin/remex-adapt", "build/bin/remex-checker", "build/bin/remex-test-actionprobe")}})
+        save("environment.json", {"binary_sha256": {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in ("build/bin/remex-scheduler", os.path.relpath(WORKER, ROOT), "build/bin/remex-record", "build/bin/remex-adapt", "build/bin/remex-checker", "build/bin/remex-test-actionprobe")}})
 
 
 if __name__ == "__main__":

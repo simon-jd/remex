@@ -47,8 +47,9 @@ python3 tests/protocol/checker_capture_boundary_test.py
 ```
 
 The real Bazel/PostgreSQL process recovery test creates and drops only a unique
-test database; it needs `psql`, cached Bazel dependencies, the built scheduler and
-worker, a real CAS, and a delegated cgroup. Set normal Go cache environment
+test database; it needs `psql`, cached Bazel dependencies, the scheduler and
+worker that `make all` builds (`--worker` or `REMEX_TEST_WORKER_BINARY` selects
+another worker), a real CAS, and a delegated cgroup. Set normal Go cache environment
 variables if the environment uses a separate writable cache:
 
 ```sh

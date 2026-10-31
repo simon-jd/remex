@@ -20,6 +20,8 @@ import urllib.request
 import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
+# The worker that make worker-build produces; REMEX_TEST_WORKER_BINARY overrides it.
+WORKER = Path(os.environ.get("REMEX_TEST_WORKER_BINARY", ROOT / "build/worker/remex-worker"))
 LEASE = 2.0  # seconds; also the scheduler's recovery grace
 
 
@@ -31,7 +33,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cgroup-root", required=True, type=Path)
     parser.add_argument("--artifacts", type=Path)
-    parser.add_argument("--worker", type=Path, default=ROOT / "build/worker-resilience/remex-worker")
+    parser.add_argument("--worker", type=Path, default=WORKER)
     parser.add_argument("--scheduler", type=Path, default=ROOT / "build/bin/remex-scheduler")
     parser.add_argument("--bazel", type=Path, default=ROOT / ".tools/bazel.official")
     parser.add_argument("--cas", default="127.0.0.1:19092")
