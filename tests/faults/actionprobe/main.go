@@ -49,19 +49,37 @@ func main() {
 		}
 		sum := sha256.Sum256(data)
 		digest := &re.Digest{Hash: fmt.Sprintf("%x", sum), SizeBytes: int64(len(data))}
-		response, err := cas.BatchUpdateBlobs(ctx, &re.BatchUpdateBlobsRequest{InstanceName: *instance, DigestFunction: re.DigestFunction_SHA256, Requests: []*re.BatchUpdateBlobsRequest_Request{{Digest: digest, Data: data}}})
+		response, err := cas.BatchUpdateBlobs(
+			ctx,
+			&re.BatchUpdateBlobsRequest{
+				InstanceName:   *instance,
+				DigestFunction: re.DigestFunction_SHA256,
+				Requests:       []*re.BatchUpdateBlobsRequest_Request{{Digest: digest, Data: data}},
+			},
+		)
 		if err != nil || len(response.GetResponses()) != 1 || response.Responses[0].GetStatus().GetCode() != 0 {
 			panic(fmt.Sprintf("upload: %v %v", response, err))
 		}
 		return digest
 	}
-	digest := put("action", &re.Action{CommandDigest: put("command", &re.Command{Arguments: args}), InputRootDigest: put("input-root", &re.Directory{}), Timeout: durationpb.New(*timeout), Platform: &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}}})
+	digest := put(
+		"action",
+		&re.Action{
+			CommandDigest:   put("command", &re.Command{Arguments: args}),
+			InputRootDigest: put("input-root", &re.Directory{}),
+			Timeout:         durationpb.New(*timeout),
+			Platform:        &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}},
+		},
+	)
 	control, err := grpc.NewClient(*scheduler, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic(err)
 	}
 	defer control.Close()
-	stream, err := re.NewExecutionClient(control).Execute(ctx, &re.ExecuteRequest{InstanceName: *instance, ActionDigest: digest, SkipCacheLookup: true})
+	stream, err := re.NewExecutionClient(control).Execute(
+		ctx,
+		&re.ExecuteRequest{InstanceName: *instance, ActionDigest: digest, SkipCacheLookup: true},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -85,11 +103,17 @@ func main() {
 			panic(err)
 		}
 		logs := map[string]string{}
-		for name, d := range map[string]*re.Digest{"stdout": result.GetResult().GetStdoutDigest(), "stderr": result.GetResult().GetStderrDigest()} {
+		for name, d := range map[string]*re.Digest{
+			"stdout": result.GetResult().GetStdoutDigest(),
+			"stderr": result.GetResult().GetStderrDigest(),
+		} {
 			if d == nil {
 				continue
 			}
-			r, err := cas.BatchReadBlobs(ctx, &re.BatchReadBlobsRequest{InstanceName: *instance, Digests: []*re.Digest{d}})
+			r, err := cas.BatchReadBlobs(
+				ctx,
+				&re.BatchReadBlobsRequest{InstanceName: *instance, Digests: []*re.Digest{d}},
+			)
 			if err != nil || len(r.GetResponses()) != 1 || r.Responses[0].GetStatus().GetCode() != 0 {
 				panic(fmt.Sprintf("read original %s: %v %v", name, r, err))
 			}
@@ -99,7 +123,14 @@ func main() {
 			}
 			logs[name] = string(r.Responses[0].Data)
 		}
-		if err = json.NewEncoder(os.Stdout).Encode(map[string]any{"execution_id": op.Name, "status_code": result.GetStatus().GetCode(), "status_message": result.GetStatus().GetMessage(), "exit_code": result.GetResult().GetExitCode(), "action_digest": digest, "logs": logs}); err != nil {
+		if err = json.NewEncoder(os.Stdout).Encode(map[string]any{
+			"execution_id":   op.Name,
+			"status_code":    result.GetStatus().GetCode(),
+			"status_message": result.GetStatus().GetMessage(),
+			"exit_code":      result.GetResult().GetExitCode(),
+			"action_digest":  digest,
+			"logs":           logs,
+		}); err != nil {
 			panic(err)
 		}
 		return

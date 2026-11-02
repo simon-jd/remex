@@ -36,7 +36,14 @@ func (p *proxy) Complete(ctx context.Context, r *w.CompleteRequest) (*w.Complete
 }
 func (p *proxy) Lease(ctx context.Context, r *w.LeaseRequest) (*w.LeaseResponse, error) {
 	if _, err := os.Stat(p.gate); err == nil {
-		_, err = p.client.Register(ctx, &w.RegisterRequest{WorkerId: r.WorkerId, Properties: r.Properties, DeviceSnapshotJson: r.DeviceSnapshotJson})
+		_, err = p.client.Register(
+			ctx,
+			&w.RegisterRequest{
+				WorkerId:           r.WorkerId,
+				Properties:         r.Properties,
+				DeviceSnapshotJson: r.DeviceSnapshotJson,
+			},
+		)
 		return &w.LeaseResponse{}, err
 	}
 	response, err := p.client.Lease(ctx, r)
@@ -71,7 +78,10 @@ func main() {
 	}
 	defer conn.Close()
 	server := grpc.NewServer()
-	w.RegisterWorkerServiceServer(server, &proxy{client: w.NewWorkerServiceClient(conn), gate: *gate, afterGate: *afterGate, observed: *observed})
+	w.RegisterWorkerServiceServer(
+		server,
+		&proxy{client: w.NewWorkerServiceClient(conn), gate: *gate, afterGate: *afterGate, observed: *observed},
+	)
 	l, err := net.Listen("tcp", *listen)
 	if err != nil {
 		panic(err)

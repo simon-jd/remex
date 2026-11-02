@@ -303,7 +303,10 @@ func (t *tx) addAttempt(a *Attempt) {
 	t.change.Attempts = append(t.change.Attempts, a)
 }
 func (t *tx) event(now time.Time, kind string, e *Execution, a *Attempt, details map[string]any) {
-	t.change.Events = append(t.change.Events, newEvent(int64(len(t.l.Events)+len(t.change.Events)+1), now, kind, e, a, details))
+	t.change.Events = append(
+		t.change.Events,
+		newEvent(int64(len(t.l.Events)+len(t.change.Events)+1), now, kind, e, a, details),
+	)
 }
 func (t *tx) empty() bool {
 	return len(t.change.Executions) == 0 && len(t.change.Attempts) == 0 && len(t.change.Events) == 0

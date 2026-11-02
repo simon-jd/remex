@@ -73,7 +73,11 @@ func newRealWorker(t *testing.T, memoryLimit bool) *realWorker {
 			t.Errorf("test cgroup cleanup: %v", err)
 		}
 	})
-	if err := os.WriteFile(filepath.Join(cgroup, "cgroup.subtree_control"), []byte("+cpu +memory +pids"), 0600); err != nil {
+	if err := os.WriteFile(
+		filepath.Join(cgroup, "cgroup.subtree_control"),
+		[]byte("+cpu +memory +pids"),
+		0600,
+	); err != nil {
 		t.Fatal(err)
 	}
 	if memoryLimit {
@@ -89,7 +93,12 @@ func newRealWorker(t *testing.T, memoryLimit bool) *realWorker {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = casConn.Close() })
-	s, err := scheduler.New(ctx, scheduler.NewMemoryStore(), scheduler.NewGRPCCache(casConn), scheduler.Config{CASEndpoint: endpoint, LeaseDuration: 2 * time.Second, MaxAttempts: 1})
+	s, err := scheduler.New(
+		ctx,
+		scheduler.NewMemoryStore(),
+		scheduler.NewGRPCCache(casConn),
+		scheduler.Config{CASEndpoint: endpoint, LeaseDuration: 2 * time.Second, MaxAttempts: 1},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,13 +118,37 @@ func newRealWorker(t *testing.T, memoryLimit bool) *realWorker {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	h := &realWorker{ctx: ctx, client: re.NewExecutionClient(conn), cas: re.NewContentAddressableStorageClient(casConn), scheduler: s, root: filepath.Join(dir, "worker"), cgroup: cgroup, log: filepath.Join(dir, "worker.log"), exited: make(chan error, 1)}
+	h := &realWorker{
+		ctx:       ctx,
+		client:    re.NewExecutionClient(conn),
+		cas:       re.NewContentAddressableStorageClient(casConn),
+		scheduler: s,
+		root:      filepath.Join(dir, "worker"),
+		cgroup:    cgroup,
+		log:       filepath.Join(dir, "worker.log"),
+		exited:    make(chan error, 1),
+	}
 	log, err := os.Create(h.log)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = log.Close() })
-	h.process = exec.Command(binary, "--scheduler", listener.Addr().String(), "--cas", endpoint, "--cgroup-root", cgroup, "--root", h.root, "--id", "independent-cpp", "--property", "pool=cpu", "--once")
+	h.process = exec.Command(
+		binary,
+		"--scheduler",
+		listener.Addr().String(),
+		"--cas",
+		endpoint,
+		"--cgroup-root",
+		cgroup,
+		"--root",
+		h.root,
+		"--id",
+		"independent-cpp",
+		"--property",
+		"pool=cpu",
+		"--once",
+	)
 	h.process.Stdout, h.process.Stderr = log, log
 	if err := h.process.Start(); err != nil {
 		t.Fatal(err)
@@ -154,7 +187,14 @@ func (h *realWorker) put(t *testing.T, message proto.Message) *re.Digest {
 	}
 	sum := sha256.Sum256(b)
 	d := &re.Digest{Hash: fmt.Sprintf("%x", sum), SizeBytes: int64(len(b))}
-	r, err := h.cas.BatchUpdateBlobs(h.ctx, &re.BatchUpdateBlobsRequest{InstanceName: "independent-worker-tests", DigestFunction: re.DigestFunction_SHA256, Requests: []*re.BatchUpdateBlobsRequest_Request{{Digest: d, Data: b}}})
+	r, err := h.cas.BatchUpdateBlobs(
+		h.ctx,
+		&re.BatchUpdateBlobsRequest{
+			InstanceName:   "independent-worker-tests",
+			DigestFunction: re.DigestFunction_SHA256,
+			Requests:       []*re.BatchUpdateBlobsRequest_Request{{Digest: d, Data: b}},
+		},
+	)
 	if err != nil || len(r.GetResponses()) != 1 || r.Responses[0].GetStatus().GetCode() != 0 {
 		t.Fatalf("upload = %v, %v", r, err)
 	}
@@ -162,8 +202,20 @@ func (h *realWorker) put(t *testing.T, message proto.Message) *re.Digest {
 }
 func (h *realWorker) execute(t *testing.T, argv []string, timeout time.Duration) re.Execution_ExecuteClient {
 	t.Helper()
-	d := h.put(t, &re.Action{CommandDigest: h.put(t, &re.Command{Arguments: argv}), InputRootDigest: h.put(t, &re.Directory{}), Timeout: durationpb.New(timeout), DoNotCache: true, Platform: &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}}})
-	stream, err := h.client.Execute(h.ctx, &re.ExecuteRequest{InstanceName: "independent-worker-tests", ActionDigest: d, SkipCacheLookup: true})
+	d := h.put(
+		t,
+		&re.Action{
+			CommandDigest:   h.put(t, &re.Command{Arguments: argv}),
+			InputRootDigest: h.put(t, &re.Directory{}),
+			Timeout:         durationpb.New(timeout),
+			DoNotCache:      true,
+			Platform:        &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}},
+		},
+	)
+	stream, err := h.client.Execute(
+		h.ctx,
+		&re.ExecuteRequest{InstanceName: "independent-worker-tests", ActionDigest: d, SkipCacheLookup: true},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,9 +232,30 @@ func TestRealWorkerResultClassification(t *testing.T) {
 		exit    int32
 	}{
 		{"success", []string{"/bin/sh", "-c", "printf independent-success"}, 5 * time.Second, codes.OK, false, 0},
-		{"timeout", []string{"/bin/bash", "-c", "set -m; sleep 60 & wait"}, 100 * time.Millisecond, codes.DeadlineExceeded, false, 0},
-		{"oom", []string{"/usr/bin/python3", "-c", "x=bytearray(256*1024*1024)"}, 5 * time.Second, codes.ResourceExhausted, true, 0},
-		{"missing_executable", []string{"/remex-independent-missing-executable"}, 5 * time.Second, codes.Internal, false, 0},
+		{
+			"timeout",
+			[]string{"/bin/bash", "-c", "set -m; sleep 60 & wait"},
+			100 * time.Millisecond,
+			codes.DeadlineExceeded,
+			false,
+			0,
+		},
+		{
+			"oom",
+			[]string{"/usr/bin/python3", "-c", "x=bytearray(256*1024*1024)"},
+			5 * time.Second,
+			codes.ResourceExhausted,
+			true,
+			0,
+		},
+		{
+			"missing_executable",
+			[]string{"/remex-independent-missing-executable"},
+			5 * time.Second,
+			codes.Internal,
+			false,
+			0,
+		},
 		{"real_exit_127", []string{"/bin/sh", "-c", "exit 127"}, 5 * time.Second, codes.OK, false, 127},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -201,7 +274,12 @@ func TestRealWorkerResultClassification(t *testing.T) {
 					t.Fatal(err)
 				}
 				if codes.Code(response.GetStatus().GetCode()) != tc.code {
-					t.Fatalf("status = %s (%s); expected %s", codes.Code(response.GetStatus().GetCode()), response.GetStatus().GetMessage(), tc.code)
+					t.Fatalf(
+						"status = %s (%s); expected %s",
+						codes.Code(response.GetStatus().GetCode()),
+						response.GetStatus().GetMessage(),
+						tc.code,
+					)
 				}
 				if tc.code == codes.OK && response.GetResult().GetExitCode() != tc.exit {
 					t.Fatalf("command exit = %d, expected %d", response.GetResult().GetExitCode(), tc.exit)
@@ -215,7 +293,12 @@ func TestRealWorkerResultClassification(t *testing.T) {
 			if tc.oom && ledger.Attempts[0].OOMKill < 1 {
 				t.Fatal("OOM classification lacks kernel oom_kill evidence")
 			}
-			t.Logf("status=%s oom_kill=%d resources=%s", ledger.Attempts[0].Status, ledger.Attempts[0].OOMKill, ledger.Attempts[0].ResourceUsageJSON)
+			t.Logf(
+				"status=%s oom_kill=%d resources=%s",
+				ledger.Attempts[0].Status,
+				ledger.Attempts[0].OOMKill,
+				ledger.Attempts[0].ResourceUsageJSON,
+			)
 		})
 	}
 }

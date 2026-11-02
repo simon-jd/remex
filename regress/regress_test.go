@@ -30,7 +30,10 @@ func TestFailureRateLowerBound(t *testing.T) {
 	}
 }
 func TestCalibrationStopsAtTheTargetFailureCount(t *testing.T) {
-	r, err := Bisect(context.Background(), BisectConfig{Revisions: []string{"a", "b"}, Budget: 500}, RunnerFunc(func(_ context.Context, rev string, _ int) (Observation, error) {
+	r, err := Bisect(context.Background(), BisectConfig{
+		Revisions: []string{"a", "b"},
+		Budget:    500,
+	}, RunnerFunc(func(_ context.Context, rev string, _ int) (Observation, error) {
 		if rev == "b" {
 			return Observation{Category: TestFailure, Signature: "bug"}, nil
 		}
@@ -52,7 +55,11 @@ func TestRareFlakeBisectsWithinBudget(t *testing.T) {
 		revisions[i] = fmt.Sprintf("r%02d", i)
 	}
 	rng := rand.New(rand.NewPCG(7, 7))
-	r, err := Bisect(context.Background(), BisectConfig{Revisions: revisions, Budget: 5000}, RunnerFunc(func(_ context.Context, rev string, _ int) (Observation, error) {
+	r, err := Bisect(context.Background(), BisectConfig{Revisions: revisions, Budget: 5000}, RunnerFunc(func(
+		_ context.Context,
+		rev string,
+		_ int,
+	) (Observation, error) {
 		if rev >= "r19" && rng.Float64() < 0.1 {
 			return Observation{Category: TestFailure, Signature: "bug"}, nil
 		}
@@ -79,13 +86,18 @@ func TestBisectConfirmsAdjacentBoundary(t *testing.T) {
 	if r.Conclusion != ConclusionCulprit || r.Culprit != "c" {
 		t.Fatalf("%+v", r)
 	}
-	if r.Probes[len(r.Probes)-1].Purpose != PurposeConfirmCulprit || len(r.Probes[len(r.Probes)-1].Observations) != 2*r.K || len(r.Probes[len(r.Probes)-2].Observations) != 2*r.K {
+	if r.Probes[len(r.Probes)-1].Purpose != PurposeConfirmCulprit ||
+		len(r.Probes[len(r.Probes)-1].Observations) != 2*r.K ||
+		len(r.Probes[len(r.Probes)-2].Observations) != 2*r.K {
 		t.Fatal("missing full confirmation")
 	}
 }
 func TestBisectBudgetInfraAndSignature(t *testing.T) {
 	t.Run("infra-not-bad", func(t *testing.T) {
-		r, err := Bisect(context.Background(), BisectConfig{Revisions: []string{"a", "b"}, Budget: 7}, RunnerFunc(func(context.Context, string, int) (Observation, error) {
+		r, err := Bisect(context.Background(), BisectConfig{
+			Revisions: []string{"a", "b"},
+			Budget:    7,
+		}, RunnerFunc(func(context.Context, string, int) (Observation, error) {
 			return Observation{Category: Infrastructure}, nil
 		}))
 		if err != nil || r.Conclusion != ConclusionInconclusive || r.Runs != 7 {
@@ -93,13 +105,23 @@ func TestBisectBudgetInfraAndSignature(t *testing.T) {
 		}
 	})
 	t.Run("unreproducible", func(t *testing.T) {
-		r, _ := Bisect(context.Background(), BisectConfig{Revisions: []string{"a", "b"}}, RunnerFunc(func(context.Context, string, int) (Observation, error) { return Observation{Category: Pass}, nil }))
+		r, _ := Bisect(
+			context.Background(),
+			BisectConfig{Revisions: []string{"a", "b"}},
+			RunnerFunc(func(context.Context, string, int) (Observation, error) {
+				return Observation{Category: Pass}, nil
+			}),
+		)
 		if r.Conclusion != ConclusionInconclusive {
 			t.Fatal(r)
 		}
 	})
 	t.Run("different-signature-range", func(t *testing.T) {
-		r, _ := Bisect(context.Background(), BisectConfig{Revisions: []string{"a", "b", "c"}}, RunnerFunc(func(_ context.Context, rev string, _ int) (Observation, error) {
+		r, _ := Bisect(context.Background(), BisectConfig{Revisions: []string{"a", "b", "c"}}, RunnerFunc(func(
+			_ context.Context,
+			rev string,
+			_ int,
+		) (Observation, error) {
 			switch rev {
 			case "a":
 				return Observation{Category: Pass}, nil
@@ -116,7 +138,10 @@ func TestBisectBudgetInfraAndSignature(t *testing.T) {
 	t.Run("confirmation-fails", func(t *testing.T) {
 		n := 0
 		// b fails only while it is being calibrated, so its confirmation fails.
-		r, _ := Bisect(context.Background(), BisectConfig{Revisions: []string{"a", "b"}, CalibrationFailures: 10}, RunnerFunc(func(_ context.Context, rev string, _ int) (Observation, error) {
+		r, _ := Bisect(context.Background(), BisectConfig{
+			Revisions:           []string{"a", "b"},
+			CalibrationFailures: 10,
+		}, RunnerFunc(func(_ context.Context, rev string, _ int) (Observation, error) {
 			if rev == "b" {
 				n++
 				if n <= 10 {
@@ -150,22 +175,43 @@ func TestBEPClassificationUsesEvidence(t *testing.T) {
 	if second := Classify(results, nil, ""); first.Signature == second.Signature || first.Signature == "" {
 		t.Fatal("distinct test failures merged")
 	}
-	if got := Classify(results, []AttemptEvidence{{ID: "oom", Status: "OK", OOMKill: 1}}, ""); got.Category != Infrastructure {
+	if got := Classify(
+		results,
+		[]AttemptEvidence{{ID: "oom", Status: "OK", OOMKill: 1}},
+		"",
+	); got.Category != Infrastructure {
 		t.Fatal(got)
 	}
 	if got := Classify(nil, []AttemptEvidence{{ExitCode: 1, Status: "OK"}}, ""); got.Category != Unknown {
 		t.Fatal(got)
 	}
-	if got := Classify([]BEPResult{{Label: "//:test", Status: "PASSED", Cached: true}}, nil, ""); got.Category != Unknown {
+	if got := Classify(
+		[]BEPResult{{Label: "//:test", Status: "PASSED", Cached: true}},
+		nil,
+		"",
+	); got.Category != Unknown {
 		t.Fatal(got)
 	}
 }
 func TestHardwareSelectionConservativeFallback(t *testing.T) {
-	r := SelectionRequest{Targets: []HardwareTarget{{"//:cpu", nil}, {"//:gpu", []string{"remex-hw", "no-remote-cache"}}, {"//:rtl", []string{"remex-hw", "no-remote-cache"}}}, Affected: []string{"//:gpu"}}
+	r := SelectionRequest{
+		Targets: []HardwareTarget{
+			{"//:cpu", nil},
+			{"//:gpu", []string{"remex-hw", "no-remote-cache"}},
+			{"//:rtl", []string{"remex-hw", "no-remote-cache"}},
+		},
+		Affected: []string{"//:gpu"},
+	}
 	if s := SelectHardware(r); s.Full || len(s.Targets) != 1 || s.Targets[0] != "//:gpu" {
 		t.Fatal(s)
 	}
-	for _, file := range []string{"MODULE.bazel", "config/.bazelrc", "platforms/gpu.bzl", "toolchains/cc.bzl", "environment.lock"} {
+	for _, file := range []string{
+		"MODULE.bazel",
+		"config/.bazelrc",
+		"platforms/gpu.bzl",
+		"toolchains/cc.bzl",
+		"environment.lock",
+	} {
 		r.ChangedFiles = []string{file}
 		if s := SelectHardware(r); !s.Full || len(s.Targets) != 2 {
 			t.Fatal(s)
@@ -193,7 +239,11 @@ func TestBundleReplaysWithoutOriginalInputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	bundle := filepath.Join(root, "bundle")
-	if err := ExportBundle(inputs, bundle, Bundle{Command: []string{"sh", "-c", "cat data; printf '%s' \"$REMEX_REPLAY_SEED\""}, Seed: 42}); err != nil {
+	if err := ExportBundle(
+		inputs,
+		bundle,
+		Bundle{Command: []string{"sh", "-c", "cat data; printf '%s' \"$REMEX_REPLAY_SEED\""}, Seed: 42},
+	); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.RemoveAll(inputs); err != nil {
@@ -227,7 +277,10 @@ func TestBundleRejectsSymlinksAndTampering(t *testing.T) {
 	b.Inputs[0].SHA256 = strings.Repeat("0", 64)
 	data, _ = json.Marshal(b)
 	os.WriteFile(filepath.Join(bundle, "bundle.json"), data, 0644)
-	if out, err := exec.Command(filepath.Join(bundle, "run.sh")).CombinedOutput(); err == nil || !bytes.Contains(out, []byte("hash mismatch")) {
+	if out, err := exec.Command(filepath.Join(bundle, "run.sh")).CombinedOutput(); err == nil || !bytes.Contains(
+		out,
+		[]byte("hash mismatch"),
+	) {
 		t.Fatalf("tampering accepted: %s %v", out, err)
 	}
 	var archive bytes.Buffer
@@ -242,7 +295,10 @@ func TestBundleRejectsSymlinksAndTampering(t *testing.T) {
 		t.Fatal(err)
 	}
 	os.WriteFile(filepath.Join(bundle, "inputs.tar.zst"), compressed, 0644)
-	if out, err := exec.Command(filepath.Join(bundle, "run.sh")).CombinedOutput(); err == nil || !bytes.Contains(out, []byte("unsafe")) {
+	if out, err := exec.Command(filepath.Join(bundle, "run.sh")).CombinedOutput(); err == nil || !bytes.Contains(
+		out,
+		[]byte("unsafe"),
+	) {
 		t.Fatalf("traversal accepted: %s %v", out, err)
 	}
 }
@@ -277,7 +333,9 @@ func TestGitHistoryRealRepository(t *testing.T) {
 }
 
 func TestLedgerTimeoutPreservesFreshLogSignature(t *testing.T) {
-	results := []BEPResult{{Label: "//:timeout", Status: "TIMEOUT", FailureText: "seed=12\nREMEX_SIGNATURE: deadlock-v1\n"}}
+	results := []BEPResult{
+		{Label: "//:timeout", Status: "TIMEOUT", FailureText: "seed=12\nREMEX_SIGNATURE: deadlock-v1\n"},
+	}
 	attempts := []AttemptEvidence{{ID: "deadline", Status: "DeadlineExceeded"}}
 	got := Classify(results, attempts, "")
 	if got.Category != Timeout || got.Signature != "deadlock-v1" {
@@ -290,13 +348,20 @@ func TestLedgerTimeoutPreservesFreshLogSignature(t *testing.T) {
 }
 
 func TestExecutionCancellationPreservesLedgerEvidence(t *testing.T) {
-	for _, attempts := range []string{`[]`, `[{"id":"a","execution_id":"executions/cancelled","status":"UNKNOWN","phase":"Running"}]`} {
+	for _, attempts := range []string{
+		`[]`,
+		`[{"id":"a","execution_id":"executions/cancelled","status":"UNKNOWN","phase":"Running"}]`,
+	} {
 		raw := []byte(`{"executions":[{"id":"executions/cancelled","invocation_ids":["ours"],"state":"Cancelled","status_code":1}],"attempts":` + attempts + `}`)
 		evidence, err := ParseLedgerEvidence(raw, "ours")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := Classify([]BEPResult{{Label: "//:test", Status: "REMOTE_FAILURE"}}, evidence, ""); got.Category != Cancelled || len(got.Evidence) != 1 || got.Evidence[0] != "execution:executions/cancelled" {
+		if got := Classify(
+			[]BEPResult{{Label: "//:test", Status: "REMOTE_FAILURE"}},
+			evidence,
+			"",
+		); got.Category != Cancelled || len(got.Evidence) != 1 || got.Evidence[0] != "execution:executions/cancelled" {
 			t.Fatalf("cancelled execution lost: %+v", got)
 		}
 		if _, err = ParseLedgerEvidence(raw, "unrelated"); err == nil {

@@ -152,7 +152,16 @@ func run() error {
 	for name, values := range metrics {
 		distributions[name] = summarize(values)
 	}
-	output := map[string]any{"source": *file, "invocation": *inv, "executions": len(created), "attempts": attempts, "missing_result_metadata": missing, "worker_command_cpu_seconds": cpuSeconds, "distributions": distributions, "scope": "Wall-clock phase deltas require synchronized clocks; this report's single-host benchmark satisfies that condition. Missing phases are excluded, not inferred as zero. report_to_ac_published includes CAS verification, DB commit, and AC RPC, not only scheduler CPU."}
+	output := map[string]any{
+		"source":                     *file,
+		"invocation":                 *inv,
+		"executions":                 len(created),
+		"attempts":                   attempts,
+		"missing_result_metadata":    missing,
+		"worker_command_cpu_seconds": cpuSeconds,
+		"distributions":              distributions,
+		"scope":                      "Wall-clock phase deltas require synchronized clocks; this report's single-host benchmark satisfies that condition. Missing phases are excluded, not inferred as zero. report_to_ac_published includes CAS verification, DB commit, and AC RPC, not only scheduler CPU.",
+	}
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(output)

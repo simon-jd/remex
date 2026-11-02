@@ -18,7 +18,12 @@ func TestLeasePreservesOriginalQueuedTimestamp(t *testing.T) {
 	// Recovery must not turn the enqueue time into the restart time. After the
 	// recovered lease expires, its successor retains the execution's original
 	// timestamp rather than pretending to describe only its latest queue wait.
-	recovered, err := New(f.ctx, f.store, f.c, Config{RecoveryGrace: time.Second, LeaseDuration: time.Second, Now: func() time.Time { return f.now }})
+	recovered, err := New(
+		f.ctx,
+		f.store,
+		f.c,
+		Config{RecoveryGrace: time.Second, LeaseDuration: time.Second, Now: func() time.Time { return f.now }},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +31,9 @@ func TestLeasePreservesOriginalQueuedTimestamp(t *testing.T) {
 	f.now = f.now.Add(2 * time.Second)
 	f.register(t, "cpu2", map[string]string{"pool": "cpu"})
 	second := f.lease(t, "cpu2")
-	if second.Epoch != first.Epoch+1 || second.QueuedTimestamp == nil || !second.QueuedTimestamp.AsTime().Equal(queued) {
+	if second.Epoch != first.Epoch+1 ||
+		second.QueuedTimestamp == nil ||
+		!second.QueuedTimestamp.AsTime().Equal(queued) {
 		t.Fatalf("recovered lease changed original enqueue time: %v", second)
 	}
 }

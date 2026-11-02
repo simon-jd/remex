@@ -43,7 +43,10 @@ func TestREAPIWorkingDirectoryOutputFixture(t *testing.T) {
 	if err := proto.Unmarshal(raw, &result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.OutputDirectories) != 1 || result.OutputDirectories[0].Path != "" || !proto.Equal(result.OutputDirectories[0].TreeDigest, tree) {
+	if len(result.OutputDirectories) != 1 || result.OutputDirectories[0].Path != "" || !proto.Equal(
+		result.OutputDirectories[0].TreeDigest,
+		tree,
+	) {
 		t.Fatal("invalid raw REAPI fixture")
 	}
 	req := completion(lease, "cpu1", &result)
@@ -65,7 +68,9 @@ func TestEmptyPathAllowedOnlyForOutputDirectory(t *testing.T) {
 		"symlink":           {OutputSymlinks: []*re.OutputSymlink{{Path: "", Target: "x"}}},
 		"file_symlink":      {OutputFileSymlinks: []*re.OutputSymlink{{Path: "", Target: "x"}}},
 		"directory_symlink": {OutputDirectorySymlinks: []*re.OutputSymlink{{Path: "", Target: "x"}}},
-		"repeated_root":     {OutputDirectories: []*re.OutputDirectory{{Path: "", TreeDigest: tree}, {Path: "", TreeDigest: tree}}},
+		"repeated_root": {
+			OutputDirectories: []*re.OutputDirectory{{Path: "", TreeDigest: tree}, {Path: "", TreeDigest: tree}},
+		},
 	}
 	for name, result := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -81,7 +86,12 @@ type publicationObserverCache struct {
 	observe func(context.Context) error
 }
 
-func (c *publicationObserverCache) UpdateActionResult(ctx context.Context, instance string, d *re.Digest, result *re.ActionResult) error {
+func (c *publicationObserverCache) UpdateActionResult(
+	ctx context.Context,
+	instance string,
+	d *re.Digest,
+	result *re.ActionResult,
+) error {
 	if err := c.observe(ctx); err != nil {
 		return err
 	}
@@ -130,7 +140,11 @@ func verifyDurablePublicationObserver(t *testing.T, store Store) {
 		md, _ := metadata.FromOutgoingContext(ctx)
 		sequence, err := strconv.Atoi(md.Get("x-remex-ledger-sequence")[0])
 		if err != nil || sequence != len(ledger.Events) || ledger.Events[sequence-1].Kind != "attempt_committed" {
-			err = fmt.Errorf("correlation does not identify durable commit prefix: metadata=%v events=%d", md, len(ledger.Events))
+			err = fmt.Errorf(
+				"correlation does not identify durable commit prefix: metadata=%v events=%d",
+				md,
+				len(ledger.Events),
+			)
 			observed <- err
 			return err
 		}
@@ -175,7 +189,22 @@ func TestAuditContextReplacesStaleCorrelationMetadata(t *testing.T) {
 	id := f.start(t, true)
 	lease := f.lease(t, "cpu1")
 	f.running(t, lease, "cpu1")
-	original := metadata.Pairs("x-remex-execution-id", "stale-one", "x-remex-execution-id", "stale-two", "x-remex-attempt-id", "old-attempt", "x-remex-epoch", "999", "x-remex-ledger-sequence", "-1", "authorization", "opaque-test-token", "x-custom", "preserved")
+	original := metadata.Pairs(
+		"x-remex-execution-id",
+		"stale-one",
+		"x-remex-execution-id",
+		"stale-two",
+		"x-remex-attempt-id",
+		"old-attempt",
+		"x-remex-epoch",
+		"999",
+		"x-remex-ledger-sequence",
+		"-1",
+		"authorization",
+		"opaque-test-token",
+		"x-custom",
+		"preserved",
+	)
 	ctx := metadata.NewOutgoingContext(f.ctx, original)
 	f.s.mu.Lock()
 	e := f.s.ledger.execution(id)
@@ -186,14 +215,23 @@ func TestAuditContextReplacesStaleCorrelationMetadata(t *testing.T) {
 	wantSequence := len(f.s.ledger.Events)
 	f.s.mu.Unlock()
 	md, _ := metadata.FromOutgoingContext(updated)
-	for key, want := range map[string]string{"x-remex-execution-id": id, "x-remex-attempt-id": lease.AttemptId, "x-remex-epoch": "1", "x-remex-ledger-sequence": strconv.Itoa(wantSequence), "authorization": "opaque-test-token", "x-custom": "preserved"} {
+	for key, want := range map[string]string{
+		"x-remex-execution-id":    id,
+		"x-remex-attempt-id":      lease.AttemptId,
+		"x-remex-epoch":           "1",
+		"x-remex-ledger-sequence": strconv.Itoa(wantSequence),
+		"authorization":           "opaque-test-token",
+		"x-custom":                "preserved",
+	} {
 		values := md.Get(key)
 		if len(values) != 1 || values[0] != want {
 			t.Fatalf("%s metadata = %q, want one %q", key, values, want)
 		}
 	}
 	before, _ := metadata.FromOutgoingContext(ctx)
-	if got := before.Get("x-remex-execution-id"); len(got) != 2 || got[0] != "stale-one" || before.Get("x-remex-ledger-sequence")[0] != "-1" {
+	if got := before.Get("x-remex-execution-id"); len(got) != 2 ||
+		got[0] != "stale-one" ||
+		before.Get("x-remex-ledger-sequence")[0] != "-1" {
 		t.Fatal("audit context modified caller metadata")
 	}
 }
@@ -265,7 +303,39 @@ func TestEightConcurrentCompletionsAcknowledgeOneWinner(t *testing.T) {
 
 func TestLedgerCloneDoesNotAliasMutableFields(t *testing.T) {
 	now := time.Now().UTC()
-	original := &Ledger{SchemaVersion: 1, Executions: []*Execution{{ID: "e", InvocationIDs: []string{"inv"}, Platform: map[string]string{"pool": "cpu"}, Action: []byte{1}, Command: []byte{2}, Result: []byte{3}}}, Attempts: []*Attempt{{ID: "a", WorkerPlatform: map[string]string{"cpu": "8"}, CommandStartedAt: &now, ResultDigests: []Digest{{Hash: "digest", SizeBytes: 1}}, Result: []byte{4}}}, Events: []Event{{Details: map[string]any{"platform": map[string]string{"pool": "cpu"}, "digests": []Digest{{Hash: "event-digest"}}, "invocations": []string{"original"}, "decoded": []any{map[string]any{"values": []any{"original"}}}, "bytes": []byte{5}}}}}
+	original := &Ledger{
+		SchemaVersion: 1,
+		Executions: []*Execution{
+			{
+				ID:            "e",
+				InvocationIDs: []string{"inv"},
+				Platform:      map[string]string{"pool": "cpu"},
+				Action:        []byte{1},
+				Command:       []byte{2},
+				Result:        []byte{3},
+			},
+		},
+		Attempts: []*Attempt{
+			{
+				ID:               "a",
+				WorkerPlatform:   map[string]string{"cpu": "8"},
+				CommandStartedAt: &now,
+				ResultDigests:    []Digest{{Hash: "digest", SizeBytes: 1}},
+				Result:           []byte{4},
+			},
+		},
+		Events: []Event{
+			{
+				Details: map[string]any{
+					"platform":    map[string]string{"pool": "cpu"},
+					"digests":     []Digest{{Hash: "event-digest"}},
+					"invocations": []string{"original"},
+					"decoded":     []any{map[string]any{"values": []any{"original"}}},
+					"bytes":       []byte{5},
+				},
+			},
+		},
+	}
 	before, _ := json.Marshal(original)
 	clone := original.clone()
 	same, _ := json.Marshal(clone)

@@ -85,7 +85,14 @@ func ReadBEP(r io.Reader) ([]BEPResult, error) {
 		}
 		if event.ID.TestResult != nil && event.TestResult != nil {
 			x, y := event.ID.TestResult, event.TestResult
-			result := BEPResult{Label: x.Label, Status: y.Status, Cached: y.CachedLocally || y.ExecutionInfo.CachedRemotely, Run: x.Run, Attempt: x.Attempt, StatusDetails: y.StatusDetails}
+			result := BEPResult{
+				Label:         x.Label,
+				Status:        y.Status,
+				Cached:        y.CachedLocally || y.ExecutionInfo.CachedRemotely,
+				Run:           x.Run,
+				Attempt:       x.Attempt,
+				StatusDetails: y.StatusDetails,
+			}
 			for _, file := range y.TestActionOutput {
 				if file.Name == "test.log" {
 					result.LogURI = file.URI
@@ -106,23 +113,39 @@ func Classify(results []BEPResult, attempts []AttemptEvidence, signature string)
 	for _, a := range attempts {
 		a.Status = normalizeStatus(a.Status)
 		if a.OOMKill > 0 {
-			return Observation{Category: Infrastructure, Detail: "cgroup OOM kill", Evidence: []string{"attempt:" + a.ID}}
+			return Observation{
+				Category: Infrastructure,
+				Detail:   "cgroup OOM kill",
+				Evidence: []string{"attempt:" + a.ID},
+			}
 		}
 		if a.ExecutionState == "Cancelled" && (a.Status == "" || a.Status == "UNKNOWN") {
 			continue
 		}
 		if a.Status != "" && a.Status != "OK" && a.Status != "CANCELLED" && a.Status != "DEADLINE_EXCEEDED" {
-			return Observation{Category: Infrastructure, Detail: "ledger status: " + a.Status, Evidence: []string{"attempt:" + a.ID}}
+			return Observation{
+				Category: Infrastructure,
+				Detail:   "ledger status: " + a.Status,
+				Evidence: []string{"attempt:" + a.ID},
+			}
 		}
 	}
 	var deadlineAttempt string
 	for _, a := range attempts {
 		a.Status = normalizeStatus(a.Status)
 		if a.ExecutionState == "Cancelled" {
-			return Observation{Category: Cancelled, Detail: "ledger execution cancellation", Evidence: []string{"execution:" + a.ExecutionID}}
+			return Observation{
+				Category: Cancelled,
+				Detail:   "ledger execution cancellation",
+				Evidence: []string{"execution:" + a.ExecutionID},
+			}
 		}
 		if a.Status == "CANCELLED" {
-			return Observation{Category: Cancelled, Detail: "ledger cancellation", Evidence: []string{"attempt:" + a.ID}}
+			return Observation{
+				Category: Cancelled,
+				Detail:   "ledger cancellation",
+				Evidence: []string{"attempt:" + a.ID},
+			}
 		}
 		if a.Status == "DEADLINE_EXCEEDED" {
 			deadlineAttempt = a.ID
@@ -133,7 +156,11 @@ func Classify(results []BEPResult, attempts []AttemptEvidence, signature string)
 	missingSignature := false
 	for _, r := range results {
 		if r.Cached {
-			return Observation{Category: Unknown, Detail: "cached result cannot establish a fresh regression observation", Evidence: []string{"BEP:" + r.Label}}
+			return Observation{
+				Category: Unknown,
+				Detail:   "cached result cannot establish a fresh regression observation",
+				Evidence: []string{"BEP:" + r.Label},
+			}
 		}
 		switch r.Status {
 		case "REMOTE_FAILURE", "FAILED_TO_BUILD", "INCOMPLETE", "TOOL_HALTED_BEFORE_TESTING":
@@ -153,7 +180,10 @@ func Classify(results []BEPResult, attempts []AttemptEvidence, signature string)
 					text = strings.TrimSpace(r.StatusDetails)
 				}
 				for _, line := range strings.Split(text, "\n") {
-					if marker, ok := strings.CutPrefix(strings.TrimSpace(line), "REMEX_SIGNATURE:"); ok && strings.TrimSpace(marker) != "" {
+					if marker, ok := strings.CutPrefix(
+						strings.TrimSpace(line),
+						"REMEX_SIGNATURE:",
+					); ok && strings.TrimSpace(marker) != "" {
 						if sig != "" && sig != strings.TrimSpace(marker) {
 							sig = ""
 							break

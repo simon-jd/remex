@@ -92,7 +92,23 @@ func New(ctx context.Context, store Store, cache Cache, cfg Config) (*Scheduler,
 	if err = validateLedger(l); err != nil {
 		return nil, err
 	}
-	s := &Scheduler{store: store, cache: cache, cfg: cfg, ledger: l, deadlines: map[string]time.Time{}, commandDeadlines: map[string]time.Time{}, workers: map[string]workerInfo{}, waiters: map[string]chan struct{}{}, unpublished: map[string]bool{}, publishing: map[string]bool{}, runnable: map[string]bool{}, queues: runQueues{}, inflight: map[string]string{}, attemptDirs: map[string]string{}, failure: make(chan error, 1)}
+	s := &Scheduler{
+		store:            store,
+		cache:            cache,
+		cfg:              cfg,
+		ledger:           l,
+		deadlines:        map[string]time.Time{},
+		commandDeadlines: map[string]time.Time{},
+		workers:          map[string]workerInfo{},
+		waiters:          map[string]chan struct{}{},
+		unpublished:      map[string]bool{},
+		publishing:       map[string]bool{},
+		runnable:         map[string]bool{},
+		queues:           runQueues{},
+		inflight:         map[string]string{},
+		attemptDirs:      map[string]string{},
+		failure:          make(chan error, 1),
+	}
 	now := cfg.Now()
 	if len(l.Executions) > 0 {
 		s.recoveryUntil = now.Add(cfg.RecoveryGrace)
@@ -112,7 +128,13 @@ func New(ctx context.Context, store Store, cache Cache, cfg Config) (*Scheduler,
 					s.commandDeadlines[a.ID] = now.Add(cfg.RecoveryGrace)
 				}
 			}
-			t.event(now, "lease_recovered", t.execution(e.ID), t.attempt(a.ID), map[string]any{"grace_ms": cfg.RecoveryGrace.Milliseconds()})
+			t.event(
+				now,
+				"lease_recovered",
+				t.execution(e.ID),
+				t.attempt(a.ID),
+				map[string]any{"grace_ms": cfg.RecoveryGrace.Milliseconds()},
+			)
 		}
 	}
 	s.reindex()
@@ -272,7 +294,15 @@ func (s *Scheduler) watchLocked(id string) <-chan struct{} {
 }
 func (s *Scheduler) Export() *Ledger { s.mu.Lock(); defer s.mu.Unlock(); return s.ledger.clone() }
 func (s *Scheduler) GetCapabilities(context.Context, *re.GetCapabilitiesRequest) (*re.ServerCapabilities, error) {
-	return &re.ServerCapabilities{ExecutionCapabilities: &re.ExecutionCapabilities{DigestFunction: re.DigestFunction_SHA256, DigestFunctions: []re.DigestFunction_Value{re.DigestFunction_SHA256}, ExecEnabled: true}, LowApiVersion: &semver.SemVer{Major: 2}, HighApiVersion: &semver.SemVer{Major: 2, Minor: 11}}, nil
+	return &re.ServerCapabilities{
+		ExecutionCapabilities: &re.ExecutionCapabilities{
+			DigestFunction:  re.DigestFunction_SHA256,
+			DigestFunctions: []re.DigestFunction_Value{re.DigestFunction_SHA256},
+			ExecEnabled:     true,
+		},
+		LowApiVersion:  &semver.SemVer{Major: 2},
+		HighApiVersion: &semver.SemVer{Major: 2, Minor: 11},
+	}, nil
 }
 
 // Start is shared by streaming Execute and protocol tests.
@@ -324,7 +354,21 @@ func (s *Scheduler) Start(ctx context.Context, r *re.ExecuteRequest) (_ string, 
 			return "", status.Error(codes.InvalidArgument, err.Error())
 		}
 	}
-	e := &Execution{ID: newID("executions/"), InvocationIDs: invocationIDs(ctx), ActionDigest: digestModel(r.ActionDigest), InstanceName: r.InstanceName, Platform: platform, DoNotCache: action.DoNotCache, HardwareTest: hardware(platform), State: "Queued", CurrentEpoch: 1, Action: raw, Command: commandRaw, CreatedAt: s.cfg.Now().UTC(), UpdatedAt: s.cfg.Now().UTC()}
+	e := &Execution{
+		ID:            newID("executions/"),
+		InvocationIDs: invocationIDs(ctx),
+		ActionDigest:  digestModel(r.ActionDigest),
+		InstanceName:  r.InstanceName,
+		Platform:      platform,
+		DoNotCache:    action.DoNotCache,
+		HardwareTest:  hardware(platform),
+		State:         "Queued",
+		CurrentEpoch:  1,
+		Action:        raw,
+		Command:       commandRaw,
+		CreatedAt:     s.cfg.Now().UTC(),
+		UpdatedAt:     s.cfg.Now().UTC(),
+	}
 	cacheable := !e.DoNotCache && !e.HardwareTest
 	if !r.SkipCacheLookup && cacheable {
 		result, cacheErr := s.cache.GetActionResult(ctx, r.InstanceName, r.ActionDigest)
@@ -369,7 +413,13 @@ func (s *Scheduler) Start(ctx context.Context, r *re.ExecuteRequest) (_ string, 
 				}
 			}
 			if joined {
-				t.event(s.cfg.Now(), "invocation_joined", current, nil, map[string]any{"invocation_ids": e.InvocationIDs})
+				t.event(
+					s.cfg.Now(),
+					"invocation_joined",
+					current,
+					nil,
+					map[string]any{"invocation_ids": e.InvocationIDs},
+				)
 				if err := s.commit(ctx, t); err != nil {
 					return "", err
 				}
@@ -460,13 +510,20 @@ func operation(e *Execution) (*longrunning.Operation, error) {
 	if done {
 		stage = re.ExecutionStage_COMPLETED
 	}
-	metadata, err := anypb.New(&re.ExecuteOperationMetadata{Stage: stage, ActionDigest: digestPB(e.ActionDigest), DigestFunction: re.DigestFunction_SHA256})
+	metadata, err := anypb.New(&re.ExecuteOperationMetadata{
+		Stage:          stage,
+		ActionDigest:   digestPB(e.ActionDigest),
+		DigestFunction: re.DigestFunction_SHA256,
+	})
 	if err != nil {
 		return nil, err
 	}
 	op := &longrunning.Operation{Name: e.ID, Done: done, Metadata: metadata}
 	if done {
-		response := &re.ExecuteResponse{Status: &rpcstatus.Status{Code: e.StatusCode, Message: e.StatusMessage}, CachedResult: e.CachedResult}
+		response := &re.ExecuteResponse{
+			Status:       &rpcstatus.Status{Code: e.StatusCode, Message: e.StatusMessage},
+			CachedResult: e.CachedResult,
+		}
 		if len(e.Result) > 0 || e.WinnerAttemptID != "" || e.CachedResult {
 			response.Result = &re.ActionResult{}
 			if err = proto.Unmarshal(e.Result, response.Result); err != nil {
@@ -494,7 +551,13 @@ func validWorker(id string, props map[string]string, snapshot string) error {
 		if snapshot == "" || json.Unmarshal([]byte(snapshot), &device) != nil || device.UUID == "" {
 			return status.Error(codes.FailedPrecondition, "GPU properties require a fresh NVML device snapshot")
 		}
-		if props["gpu.cc"] == "" || props["gpu.driver_major"] == "" || props["gpu.cc"] != device.ComputeCapability || props["gpu.driver_major"] != strings.Split(device.DriverVersion, ".")[0] {
+		if props["gpu.cc"] == "" ||
+			props["gpu.driver_major"] == "" ||
+			props["gpu.cc"] != device.ComputeCapability ||
+			props["gpu.driver_major"] != strings.Split(
+				device.DriverVersion,
+				".",
+			)[0] {
 			return status.Error(codes.FailedPrecondition, "GPU properties disagree with the NVML snapshot")
 		}
 	}
@@ -513,8 +576,15 @@ func (s *Scheduler) Register(_ context.Context, r *w.RegisterRequest) (*w.Regist
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.workers[r.WorkerId] = workerInfo{copyProps(r.Properties), r.DeviceSnapshotJson, s.cfg.Now().Add(2 * s.cfg.LeaseDuration)}
-	return &w.RegisterResponse{LeaseDurationMs: s.cfg.LeaseDuration.Milliseconds(), HeartbeatIntervalMs: s.cfg.LeaseDuration.Milliseconds() / 3}, nil
+	s.workers[r.WorkerId] = workerInfo{
+		copyProps(r.Properties),
+		r.DeviceSnapshotJson,
+		s.cfg.Now().Add(2 * s.cfg.LeaseDuration),
+	}
+	return &w.RegisterResponse{
+		LeaseDurationMs:     s.cfg.LeaseDuration.Milliseconds(),
+		HeartbeatIntervalMs: s.cfg.LeaseDuration.Milliseconds() / 3,
+	}, nil
 }
 func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseResponse, err error) {
 	if err := validWorker(r.WorkerId, r.Properties, r.DeviceSnapshotJson); err != nil {
@@ -550,16 +620,45 @@ func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseRes
 		e := s.ledger.Executions[position]
 		t := s.ledger.begin()
 		e = t.execution(e.ID)
-		a := &Attempt{ID: newID("attempt-"), ExecutionID: e.ID, Epoch: e.CurrentEpoch, WorkerID: r.WorkerId, WorkerPlatform: copyProps(r.Properties), DeviceVerified: r.Properties["pool"] != "gpu" || r.DeviceSnapshotJson != "", DeviceSnapshotJSON: r.DeviceSnapshotJson, Phase: "Materializing", Status: "UNKNOWN", ResultDigests: []Digest{}}
+		a := &Attempt{
+			ID:                 newID("attempt-"),
+			ExecutionID:        e.ID,
+			Epoch:              e.CurrentEpoch,
+			WorkerID:           r.WorkerId,
+			WorkerPlatform:     copyProps(r.Properties),
+			DeviceVerified:     r.Properties["pool"] != "gpu" || r.DeviceSnapshotJson != "",
+			DeviceSnapshotJSON: r.DeviceSnapshotJson,
+			Phase:              "Materializing",
+			Status:             "UNKNOWN",
+			ResultDigests:      []Digest{},
+		}
 		e.State = "Leased"
 		t.addAttempt(a)
-		t.event(now, "lease_granted", e, a, map[string]any{"worker_platform": a.WorkerPlatform, "device_verified": a.DeviceVerified})
+		t.event(
+			now,
+			"lease_granted",
+			e,
+			a,
+			map[string]any{"worker_platform": a.WorkerPlatform, "device_verified": a.DeviceVerified},
+		)
 		if err := s.commit(ctx, t); err != nil {
 			return nil, err
 		}
 		seen = 0
 		s.deadlines[a.ID] = now.Add(s.cfg.LeaseDuration)
-		return &w.LeaseResponse{Available: true, ExecutionId: e.ID, AttemptId: a.ID, Epoch: a.Epoch, LeaseDurationMs: s.cfg.LeaseDuration.Milliseconds(), InstanceName: e.InstanceName, ActionDigest: &w.Digest{Hash: e.ActionDigest.Hash, SizeBytes: e.ActionDigest.SizeBytes}, Action: e.Action, Command: e.Command, CasEndpoint: s.cfg.CASEndpoint, QueuedTimestamp: timestamppb.New(e.CreatedAt)}, nil
+		return &w.LeaseResponse{
+			Available:       true,
+			ExecutionId:     e.ID,
+			AttemptId:       a.ID,
+			Epoch:           a.Epoch,
+			LeaseDurationMs: s.cfg.LeaseDuration.Milliseconds(),
+			InstanceName:    e.InstanceName,
+			ActionDigest:    &w.Digest{Hash: e.ActionDigest.Hash, SizeBytes: e.ActionDigest.SizeBytes},
+			Action:          e.Action,
+			Command:         e.Command,
+			CasEndpoint:     s.cfg.CASEndpoint,
+			QueuedTimestamp: timestamppb.New(e.CreatedAt),
+		}, nil
 	}
 	return &w.LeaseResponse{}, nil
 }
@@ -569,7 +668,11 @@ func (s *Scheduler) fence(worker, id string, epoch int64, now time.Time) (*Attem
 		return nil, nil, false
 	}
 	e := s.ledger.execution(a.ExecutionID)
-	return a, e, a.WorkerID == worker && a.Epoch == epoch && e.CurrentEpoch == epoch && !terminal(e) && now.Before(s.deadlines[a.ID])
+	return a, e, a.WorkerID == worker &&
+		a.Epoch == epoch &&
+		e.CurrentEpoch == epoch &&
+		!terminal(e) &&
+		now.Before(s.deadlines[a.ID])
 }
 func (s *Scheduler) Heartbeat(ctx context.Context, r *w.HeartbeatRequest) (_ *w.HeartbeatResponse, err error) {
 	var seen uint64
@@ -653,7 +756,10 @@ func (s *Scheduler) Heartbeat(ctx context.Context, r *w.HeartbeatRequest) (_ *w.
 		// by a lost change, and the heartbeat need not wait for the log.
 		seen = noWait
 	}
-	return &w.HeartbeatResponse{Decision: w.HeartbeatResponse_CONTINUE, LeaseDurationMs: s.cfg.LeaseDuration.Milliseconds()}, nil
+	return &w.HeartbeatResponse{
+		Decision:        w.HeartbeatResponse_CONTINUE,
+		LeaseDurationMs: s.cfg.LeaseDuration.Milliseconds(),
+	}, nil
 }
 func (s *Scheduler) expireLocked(ctx context.Context, now time.Time) error {
 	if s.failed != nil {

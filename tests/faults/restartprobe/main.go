@@ -19,7 +19,11 @@ func main() {
 	worker := flag.String("worker", "", "expired worker ID")
 	attempt := flag.String("attempt", "", "expired attempt ID")
 	epoch := flag.Int64("epoch", 0, "expired epoch")
-	expected := flag.String("expected-complete", "FENCED", "FENCED for expired tokens, ACCEPTED for replaying the committed winner")
+	expected := flag.String(
+		"expected-complete",
+		"FENCED",
+		"FENCED for expired tokens, ACCEPTED for replaying the committed winner",
+	)
 	flag.Parse()
 	if *address == "" || *worker == "" || *attempt == "" || *epoch < 1 {
 		panic("all stale token fields are required")
@@ -32,11 +36,23 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	client := w.NewWorkerServiceClient(conn)
-	heartbeat, err := client.Heartbeat(ctx, &w.HeartbeatRequest{WorkerId: *worker, AttemptId: *attempt, Epoch: *epoch, Phase: w.HeartbeatRequest_RUNNING})
+	heartbeat, err := client.Heartbeat(
+		ctx,
+		&w.HeartbeatRequest{WorkerId: *worker, AttemptId: *attempt, Epoch: *epoch, Phase: w.HeartbeatRequest_RUNNING},
+	)
 	if err != nil {
 		panic(err)
 	}
-	complete, err := client.Complete(ctx, &w.CompleteRequest{WorkerId: *worker, AttemptId: *attempt, Epoch: *epoch, CgroupEmpty: true, AttemptDir: "/independent/stale-replay/" + *attempt})
+	complete, err := client.Complete(
+		ctx,
+		&w.CompleteRequest{
+			WorkerId:    *worker,
+			AttemptId:   *attempt,
+			Epoch:       *epoch,
+			CgroupEmpty: true,
+			AttemptDir:  "/independent/stale-replay/" + *attempt,
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -44,7 +60,14 @@ func main() {
 	if *expected == "ACCEPTED" {
 		source = "deliberate duplicate Complete replay of the committed winner"
 	}
-	result := map[string]any{"attempt_id": *attempt, "epoch": *epoch, "heartbeat_decision": heartbeat.Decision.String(), "complete_decision": complete.Decision.String(), "complete_message": complete.Message, "source": source}
+	result := map[string]any{
+		"attempt_id":         *attempt,
+		"epoch":              *epoch,
+		"heartbeat_decision": heartbeat.Decision.String(),
+		"complete_decision":  complete.Decision.String(),
+		"complete_message":   complete.Message,
+		"source":             source,
+	}
 	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
 		panic(err)
 	}

@@ -57,7 +57,18 @@ func SelectHardware(r SelectionRequest) Selection {
 	for _, f := range r.ChangedFiles {
 		clean := path.Clean(strings.ReplaceAll(f, "\\", "/"))
 		base := path.Base(clean)
-		global := base == "MODULE.bazel" || base == "MODULE.bazel.lock" || base == ".bazelrc" || base == ".bazelversion" || base == "environment.lock" || strings.Contains(clean, "toolchain") || strings.Contains(clean, "platform") || strings.Contains(clean, "Dockerfile") || strings.HasPrefix(clean, "deploy/")
+		global := base == "MODULE.bazel" ||
+			base == "MODULE.bazel.lock" ||
+			base == ".bazelrc" ||
+			base == ".bazelversion" ||
+			base == "environment.lock" ||
+			strings.Contains(
+				clean,
+				"toolchain",
+			) || strings.Contains(clean, "platform") || strings.Contains(
+			clean,
+			"Dockerfile",
+		) || strings.HasPrefix(clean, "deploy/")
 		for _, p := range r.GlobalPrefixes {
 			global = global || strings.HasPrefix(clean, p)
 		}

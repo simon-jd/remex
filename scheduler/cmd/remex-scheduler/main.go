@@ -58,12 +58,21 @@ func run() error {
 		}
 	}
 	defer store.Close()
-	conn, err := grpc.NewClient(*cas, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20), grpc.MaxCallSendMsgSize(64<<20)))
+	conn, err := grpc.NewClient(
+		*cas,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20), grpc.MaxCallSendMsgSize(64<<20)),
+	)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	s, err := scheduler.New(ctx, store, scheduler.NewGRPCCache(conn), scheduler.Config{CASEndpoint: *cas, LeaseDuration: *lease, RecoveryGrace: *grace, MaxAttempts: *maxAttempts})
+	s, err := scheduler.New(
+		ctx,
+		store,
+		scheduler.NewGRPCCache(conn),
+		scheduler.Config{CASEndpoint: *cas, LeaseDuration: *lease, RecoveryGrace: *grace, MaxAttempts: *maxAttempts},
+	)
 	if err != nil {
 		return err
 	}

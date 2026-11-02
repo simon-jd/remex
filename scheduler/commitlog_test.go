@@ -153,7 +153,11 @@ func TestConcurrentChangesShareOneWrite(t *testing.T) {
 // in-flight execution.
 func (f *fixture) otherDigest(t *testing.T) *re.Digest {
 	t.Helper()
-	return f.c.putProto(&re.Action{CommandDigest: f.c.putProto(&re.Command{Arguments: []string{"/bin/echo", newID("")}}), InputRootDigest: f.c.putProto(&re.Directory{}), Platform: &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}}})
+	return f.c.putProto(&re.Action{
+		CommandDigest:   f.c.putProto(&re.Command{Arguments: []string{"/bin/echo", newID("")}}),
+		InputRootDigest: f.c.putProto(&re.Directory{}),
+		Platform:        &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}},
+	})
 }
 
 func TestStreamsReportOnlyDurableCompletion(t *testing.T) {
@@ -202,7 +206,15 @@ func TestContinuingHeartbeatsDoNotWaitForTheLog(t *testing.T) {
 	waitEntered(t, g)
 	answered := make(chan *w.HeartbeatResponse, 1)
 	go func() {
-		response, err := f.s.Heartbeat(f.ctx, &w.HeartbeatRequest{WorkerId: "cpu1", AttemptId: lease.AttemptId, Epoch: lease.Epoch, Phase: w.HeartbeatRequest_RUNNING})
+		response, err := f.s.Heartbeat(
+			f.ctx,
+			&w.HeartbeatRequest{
+				WorkerId:  "cpu1",
+				AttemptId: lease.AttemptId,
+				Epoch:     lease.Epoch,
+				Phase:     w.HeartbeatRequest_RUNNING,
+			},
+		)
 		if err != nil {
 			t.Error(err)
 		}

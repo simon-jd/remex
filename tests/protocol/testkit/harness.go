@@ -88,7 +88,10 @@ func (c *Cache) BatchReadBlobs(_ context.Context, req *re.BatchReadBlobsRequest)
 	}
 	return out, nil
 }
-func (c *Cache) FindMissingBlobs(ctx context.Context, req *re.FindMissingBlobsRequest) (*re.FindMissingBlobsResponse, error) {
+func (c *Cache) FindMissingBlobs(
+	ctx context.Context,
+	req *re.FindMissingBlobsRequest,
+) (*re.FindMissingBlobsResponse, error) {
 	if err := instance(req.InstanceName); err != nil {
 		return nil, err
 	}
@@ -153,7 +156,12 @@ func New(t *testing.T, store scheduler.Store) *Harness {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
-	h := &Harness{T: t, Ctx: ctx, base: time.Now(), Cache: &Cache{blobs: map[string][]byte{}, results: map[string]*re.ActionResult{}}}
+	h := &Harness{
+		T:     t,
+		Ctx:   ctx,
+		base:  time.Now(),
+		Cache: &Cache{blobs: map[string][]byte{}, results: map[string]*re.ActionResult{}},
+	}
 	cacheConn := serve(t, func(server *grpc.Server) {
 		re.RegisterContentAddressableStorageServer(server, h.Cache)
 		re.RegisterActionCacheServer(server, h.Cache)
@@ -161,7 +169,15 @@ func New(t *testing.T, store scheduler.Store) *Harness {
 	if store == nil {
 		store = scheduler.NewMemoryStore()
 	}
-	s, err := scheduler.New(ctx, store, scheduler.NewGRPCCache(cacheConn), scheduler.Config{LeaseDuration: time.Minute, Now: func() time.Time { return h.base.Add(time.Duration(h.clock.Load())) }})
+	s, err := scheduler.New(
+		ctx,
+		store,
+		scheduler.NewGRPCCache(cacheConn),
+		scheduler.Config{
+			LeaseDuration: time.Minute,
+			Now:           func() time.Time { return h.base.Add(time.Duration(h.clock.Load())) },
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,11 +190,21 @@ func New(t *testing.T, store scheduler.Store) *Harness {
 	h.Worker = w.NewWorkerServiceClient(conn)
 	h.Execution = re.NewExecutionClient(conn)
 	h.Capabilities = re.NewCapabilitiesClient(conn)
-	_, err = h.Worker.Register(ctx, &w.RegisterRequest{WorkerId: "independent-worker", Properties: map[string]string{"pool": "cpu", "OSFamily": "Linux"}})
+	_, err = h.Worker.Register(
+		ctx,
+		&w.RegisterRequest{
+			WorkerId:   "independent-worker",
+			Properties: map[string]string{"pool": "cpu", "OSFamily": "Linux"},
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	h.Digest = h.Cache.PutProto(&re.Action{CommandDigest: h.Cache.PutProto(&re.Command{Arguments: []string{"/bin/true"}}), InputRootDigest: h.Cache.PutProto(&re.Directory{}), Platform: &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}}})
+	h.Digest = h.Cache.PutProto(&re.Action{
+		CommandDigest:   h.Cache.PutProto(&re.Command{Arguments: []string{"/bin/true"}}),
+		InputRootDigest: h.Cache.PutProto(&re.Directory{}),
+		Platform:        &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}},
+	})
 	return h
 }
 func serve(t *testing.T, register func(*grpc.Server)) *grpc.ClientConn {
@@ -187,7 +213,11 @@ func serve(t *testing.T, register func(*grpc.Server)) *grpc.ClientConn {
 	server := grpc.NewServer()
 	register(server)
 	go func() { _ = server.Serve(listener) }()
-	conn, err := grpc.NewClient("passthrough:///independent", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }))
+	conn, err := grpc.NewClient(
+		"passthrough:///independent",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +227,10 @@ func serve(t *testing.T, register func(*grpc.Server)) *grpc.ClientConn {
 func (h *Harness) Advance(d time.Duration) { h.clock.Add(int64(d)) }
 func (h *Harness) Execute(ctx context.Context) re.Execution_ExecuteClient {
 	h.T.Helper()
-	stream, err := h.Execution.Execute(ctx, &re.ExecuteRequest{InstanceName: Instance, ActionDigest: h.Digest, SkipCacheLookup: true})
+	stream, err := h.Execution.Execute(
+		ctx,
+		&re.ExecuteRequest{InstanceName: Instance, ActionDigest: h.Digest, SkipCacheLookup: true},
+	)
 	if err != nil {
 		h.T.Fatal(err)
 	}
@@ -214,14 +247,28 @@ func (h *Harness) Start() *w.LeaseResponse {
 }
 func (h *Harness) Lease() *w.LeaseResponse {
 	h.T.Helper()
-	lease, err := h.Worker.Lease(h.Ctx, &w.LeaseRequest{WorkerId: "independent-worker", Properties: map[string]string{"pool": "cpu", "OSFamily": "Linux"}})
+	lease, err := h.Worker.Lease(
+		h.Ctx,
+		&w.LeaseRequest{
+			WorkerId:   "independent-worker",
+			Properties: map[string]string{"pool": "cpu", "OSFamily": "Linux"},
+		},
+	)
 	if err != nil || !lease.Available {
 		h.T.Fatalf("lease = %v, %v", lease, err)
 	}
 	if lease.InstanceName != Instance {
 		h.T.Fatalf("worker instance = %q", lease.InstanceName)
 	}
-	r, err := h.Worker.Heartbeat(h.Ctx, &w.HeartbeatRequest{WorkerId: "independent-worker", AttemptId: lease.AttemptId, Epoch: lease.Epoch, Phase: w.HeartbeatRequest_RUNNING})
+	r, err := h.Worker.Heartbeat(
+		h.Ctx,
+		&w.HeartbeatRequest{
+			WorkerId:  "independent-worker",
+			AttemptId: lease.AttemptId,
+			Epoch:     lease.Epoch,
+			Phase:     w.HeartbeatRequest_RUNNING,
+		},
+	)
 	if err != nil || r.Decision != w.HeartbeatResponse_CONTINUE {
 		h.T.Fatalf("running heartbeat = %v, %v", r, err)
 	}
@@ -233,7 +280,14 @@ func (h *Harness) Request(lease *w.LeaseResponse, result *re.ActionResult) *w.Co
 	if err != nil {
 		h.T.Fatal(err)
 	}
-	return &w.CompleteRequest{WorkerId: "independent-worker", AttemptId: lease.AttemptId, Epoch: lease.Epoch, ActionResult: b, CgroupEmpty: true, AttemptDir: "/independent/attempts/" + lease.AttemptId}
+	return &w.CompleteRequest{
+		WorkerId:     "independent-worker",
+		AttemptId:    lease.AttemptId,
+		Epoch:        lease.Epoch,
+		ActionResult: b,
+		CgroupEmpty:  true,
+		AttemptDir:   "/independent/attempts/" + lease.AttemptId,
+	}
 }
 func (h *Harness) Complete(req *w.CompleteRequest) *w.CompleteResponse {
 	h.T.Helper()

@@ -58,7 +58,13 @@ func Check(l Ledger, external []Evidence, regression []RegressionReport) Report 
 	previous := int64(0)
 	for _, event := range l.Events {
 		if event.Sequence <= previous {
-			issue(2, "event_order", event.ExecutionID, event.AttemptID, "sequences must be positive, unique and increasing")
+			issue(
+				2,
+				"event_order",
+				event.ExecutionID,
+				event.AttemptID,
+				"sequences must be positive, unique and increasing",
+			)
 		}
 		previous = event.Sequence
 		if event.AttemptID != "" {
@@ -125,31 +131,80 @@ func Check(l Ledger, external []Evidence, regression []RegressionReport) Report 
 		a, ok := attempts[row.AttemptID]
 		e := executions[row.ExecutionID]
 		c, committed := commits[row.AttemptID]
-		if !ok || !committed || a.ExecutionID != row.ExecutionID || row.Epoch != a.Epoch || row.Epoch != e.CurrentEpoch || e.WinnerAttemptID != a.ID {
-			issue(1, "unfenced_ac_write", row.ExecutionID, row.AttemptID, "external AC write is not after a current-epoch commit")
+		if !ok ||
+			!committed ||
+			a.ExecutionID != row.ExecutionID ||
+			row.Epoch != a.Epoch ||
+			row.Epoch != e.CurrentEpoch ||
+			e.WinnerAttemptID != a.ID {
+			issue(
+				1,
+				"unfenced_ac_write",
+				row.ExecutionID,
+				row.AttemptID,
+				"external AC write is not after a current-epoch commit",
+			)
 		}
 		if !acAfterCommit(row, c) {
-			issue(1, "evidence_missing", row.ExecutionID, row.AttemptID, "AC request lacks independent preceding durable commit observation")
+			issue(
+				1,
+				"evidence_missing",
+				row.ExecutionID,
+				row.AttemptID,
+				"AC request lacks independent preceding durable commit observation",
+			)
 		}
 		if row.OrderDomain != "" {
 			verifiedBefore := false
 			for _, casRow := range external {
-				if casRow.Source == "cas" && casRow.Kind == "cas_verified" && casRow.AttemptID == row.AttemptID && casRow.OrderDomain == row.OrderDomain && casRow.Sequence < row.Sequence && casBeforeCommit(casRow, c) {
+				if casRow.Source == "cas" &&
+					casRow.Kind == "cas_verified" &&
+					casRow.AttemptID == row.AttemptID &&
+					casRow.OrderDomain == row.OrderDomain &&
+					casRow.Sequence < row.Sequence &&
+					casBeforeCommit(
+						casRow,
+						c,
+					) {
 					verifiedBefore = true
 				}
 			}
 			if !verifiedBefore {
-				issue(1, "evidence_missing", row.ExecutionID, row.AttemptID, "capture does not establish CAS verification before AC publication")
+				issue(
+					1,
+					"evidence_missing",
+					row.ExecutionID,
+					row.AttemptID,
+					"capture does not establish CAS verification before AC publication",
+				)
 			}
 		}
 		if ok {
 			for _, kernel := range external {
-				if kernel.Source == "worker" && kernel.Kind == "cgroup_empty" && kernel.AttemptID == a.ID && kernel.ExecutionID == e.ID && kernel.Epoch == a.Epoch && kernel.OOMKill != nil && *kernel.OOMKill > 0 {
-					issue(4, "kernel_oom_published", e.ID, a.ID, "independent memory.events OOM evidence forbids AC publication")
+				if kernel.Source == "worker" &&
+					kernel.Kind == "cgroup_empty" &&
+					kernel.AttemptID == a.ID &&
+					kernel.ExecutionID == e.ID &&
+					kernel.Epoch == a.Epoch &&
+					kernel.OOMKill != nil &&
+					*kernel.OOMKill > 0 {
+					issue(
+						4,
+						"kernel_oom_published",
+						e.ID,
+						a.ID,
+						"independent memory.events OOM evidence forbids AC publication",
+					)
 				}
 			}
 			if e.DoNotCache || e.HardwareTest || a.ExitCode != 0 || a.Status != "OK" || a.OOMKill > 0 {
-				issue(4, "uncacheable_published", row.ExecutionID, row.AttemptID, "uncacheable or unsuccessful result written to AC")
+				issue(
+					4,
+					"uncacheable_published",
+					row.ExecutionID,
+					row.AttemptID,
+					"uncacheable or unsuccessful result written to AC",
+				)
 			}
 		}
 	}
@@ -170,15 +225,34 @@ func Check(l Ledger, external []Evidence, regression []RegressionReport) Report 
 				if row.OrderDomain != "" {
 					leaseOrder = len(row.RawRecordIDs) >= 2 && row.Action != nil
 				}
-				if row.Epoch == a.Epoch && row.ExecutionID == a.ExecutionID && leaseOrder && row.Sequence > 0 && platformMatches(e.Platform, row.WorkerPlatform) && (e.Platform["pool"] != "gpu" || row.DeviceVerified) {
+				if row.Epoch == a.Epoch &&
+					row.ExecutionID == a.ExecutionID &&
+					leaseOrder &&
+					row.Sequence > 0 &&
+					platformMatches(
+						e.Platform,
+						row.WorkerPlatform,
+					) && (e.Platform["pool"] != "gpu" || row.DeviceVerified) {
 					valid = true
 				}
 			}
 			if !valid {
-				issue(3, "evidence_missing", a.ExecutionID, a.ID, "no matching independent platform verification at lease")
+				issue(
+					3,
+					"evidence_missing",
+					a.ExecutionID,
+					a.ID,
+					"no matching independent platform verification at lease",
+				)
 			}
 			if !platformMatches(e.Platform, a.WorkerPlatform) || (e.Platform["pool"] == "gpu" && !a.DeviceVerified) {
-				issue(3, "platform_mismatch", a.ExecutionID, a.ID, "ledger lease properties do not satisfy action platform")
+				issue(
+					3,
+					"platform_mismatch",
+					a.ExecutionID,
+					a.ID,
+					"ledger lease properties do not satisfy action platform",
+				)
 			}
 		}
 		if a.AttemptDir != "" {
@@ -196,19 +270,43 @@ func Check(l Ledger, external []Evidence, regression []RegressionReport) Report 
 			valid := false
 			required, hasRawResult := facts.digests[a.ID]
 			if !hasRawResult {
-				issue(1, "evidence_missing", a.ExecutionID, a.ID, "complete raw result and output Tree evidence required for committed attempt")
+				issue(
+					1,
+					"evidence_missing",
+					a.ExecutionID,
+					a.ID,
+					"complete raw result and output Tree evidence required for committed attempt",
+				)
 			}
 			for _, row := range find("cas", "cas_verified", a.ID) {
 				if row.InstanceName != e.InstanceName {
-					issue(1, "cas_instance_mismatch", a.ExecutionID, a.ID, "captured CAS instance differs from execution")
+					issue(
+						1,
+						"cas_instance_mismatch",
+						a.ExecutionID,
+						a.ID,
+						"captured CAS instance differs from execution",
+					)
 					continue
 				}
-				if hasRawResult && row.ExecutionID == a.ExecutionID && row.Epoch == a.Epoch && casBeforeCommit(row, c) && containsDigests(row.Digests, required) {
+				if hasRawResult && row.ExecutionID == a.ExecutionID && row.Epoch == a.Epoch && casBeforeCommit(
+					row,
+					c,
+				) && containsDigests(
+					row.Digests,
+					required,
+				) {
 					valid = true
 				}
 			}
 			if !valid {
-				issue(1, "evidence_missing", a.ExecutionID, a.ID, "external CAS verification of every result digest before commit missing")
+				issue(
+					1,
+					"evidence_missing",
+					a.ExecutionID,
+					a.ID,
+					"external CAS verification of every result digest before commit missing",
+				)
 			}
 		}
 		if a.Published || published[a.ID] {
@@ -231,7 +329,13 @@ func Check(l Ledger, external []Evidence, regression []RegressionReport) Report 
 			if reported.CompleteDecision == "FENCED" {
 				if _, ok := commits[a.ID]; ok && reported.Epoch == a.Epoch {
 					if reported.LedgerSnapshot == nil {
-						issue(2, "evidence_missing", a.ExecutionID, a.ID, "fenced/committed overlap requires durable snapshot to distinguish a post-commit duplicate")
+						issue(
+							2,
+							"evidence_missing",
+							a.ExecutionID,
+							a.ID,
+							"fenced/committed overlap requires durable snapshot to distinguish a post-commit duplicate",
+						)
 					} else {
 						alreadyCommitted := false
 						for _, event := range reported.LedgerSnapshot.Events {
@@ -240,7 +344,13 @@ func Check(l Ledger, external []Evidence, regression []RegressionReport) Report 
 							}
 						}
 						if !alreadyCommitted {
-							issue(2, "fenced_result_committed", a.ExecutionID, a.ID, "attempt committed after a same-epoch fenced response")
+							issue(
+								2,
+								"fenced_result_committed",
+								a.ExecutionID,
+								a.ID,
+								"attempt committed after a same-epoch fenced response",
+							)
 						}
 					}
 				}
@@ -252,14 +362,36 @@ func Check(l Ledger, external []Evidence, regression []RegressionReport) Report 
 					continue
 				}
 				if !rejected && !unconfirmed && empty.OOMKill != nil && *empty.OOMKill != a.OOMKill {
-					issue(4, "derived_oom_mismatch", a.ExecutionID, a.ID, "ledger OOM count differs from independent memory.events")
+					issue(
+						4,
+						"derived_oom_mismatch",
+						a.ExecutionID,
+						a.ID,
+						"ledger OOM count differs from independent memory.events",
+					)
 				}
-				if empty.Empty && empty.Epoch == reported.Epoch && (rejected || reported.Epoch == a.Epoch) && empty.ExecutionID == a.ExecutionID && reported.ExecutionID == a.ExecutionID && empty.AttemptDir != "" && empty.AttemptDir == reported.AttemptDir && (rejected || unconfirmed || empty.AttemptDir == a.AttemptDir) && empty.OrderDomain == reported.OrderDomain && empty.Sequence > 0 && empty.Sequence < reported.Sequence {
+				if empty.Empty &&
+					empty.Epoch == reported.Epoch &&
+					(rejected || reported.Epoch == a.Epoch) &&
+					empty.ExecutionID == a.ExecutionID &&
+					reported.ExecutionID == a.ExecutionID &&
+					empty.AttemptDir != "" &&
+					empty.AttemptDir == reported.AttemptDir &&
+					(rejected || unconfirmed || empty.AttemptDir == a.AttemptDir) &&
+					empty.OrderDomain == reported.OrderDomain &&
+					empty.Sequence > 0 &&
+					empty.Sequence < reported.Sequence {
 					valid = true
 				}
 			}
 			if !valid {
-				issue(5, "evidence_missing", a.ExecutionID, a.ID, "no independent empty cgroup evidence before result report")
+				issue(
+					5,
+					"evidence_missing",
+					a.ExecutionID,
+					a.ID,
+					"no independent empty cgroup evidence before result report",
+				)
 			}
 		}
 	}
@@ -292,10 +424,13 @@ func Check(l Ledger, external []Evidence, regression []RegressionReport) Report 
 				if o.Category == "PASS" {
 					passes++
 				}
-				if (o.Category == "TEST_FAILURE" || o.Category == "TIMEOUT") && o.Signature != "" && o.Signature == report.Signature {
+				if (o.Category == "TEST_FAILURE" || o.Category == "TIMEOUT") &&
+					o.Signature != "" &&
+					o.Signature == report.Signature {
 					bad++
 				}
-				if (o.Category == "TEST_FAILURE" || o.Category == "TIMEOUT") && (o.Signature == "" || o.Signature != report.Signature) {
+				if (o.Category == "TEST_FAILURE" || o.Category == "TIMEOUT") &&
+					(o.Signature == "" || o.Signature != report.Signature) {
 					otherFailure = true
 				}
 			}
@@ -305,10 +440,21 @@ func Check(l Ledger, external []Evidence, regression []RegressionReport) Report 
 			if p.Decision == "GOOD" && (bad > 0 || otherFailure) {
 				issue(6, "contradictory_probe", "", "", "GOOD probe includes matching failure")
 			}
-			if p.Purpose == "confirm-parent" && p.Decision == "GOOD" && passes >= 2*report.K && bad == 0 && !otherFailure && parent != "" && p.Revision == parent {
+			if p.Purpose == "confirm-parent" &&
+				p.Decision == "GOOD" &&
+				passes >= 2*report.K &&
+				bad == 0 &&
+				!otherFailure &&
+				parent != "" &&
+				p.Revision == parent {
 				parentOK = true
 			}
-			if p.Purpose == "confirm-culprit" && p.Decision == "BAD" && passes+bad >= 2*report.K && bad > 0 && !otherFailure && p.Revision == report.Culprit {
+			if p.Purpose == "confirm-culprit" &&
+				p.Decision == "BAD" &&
+				passes+bad >= 2*report.K &&
+				bad > 0 &&
+				!otherFailure &&
+				p.Revision == report.Culprit {
 				childOK = true
 			}
 		}
@@ -335,7 +481,10 @@ func acAfterCommit(row Evidence, commit Event) bool {
 	for _, e := range row.LedgerSnapshot.Executions {
 		if e.ID == row.ExecutionID && e.WinnerAttemptID == row.AttemptID && e.CurrentEpoch == row.Epoch {
 			for _, event := range row.LedgerSnapshot.Events {
-				if event.Kind == "attempt_committed" && event.AttemptID == row.AttemptID && event.Sequence == commit.Sequence && event.Epoch == row.Epoch {
+				if event.Kind == "attempt_committed" &&
+					event.AttemptID == row.AttemptID &&
+					event.Sequence == commit.Sequence &&
+					event.Epoch == row.Epoch {
 					return true
 				}
 			}
@@ -394,7 +543,10 @@ func platformMatches(required, actual map[string]string) bool {
 			}
 			w, e1 := strconv.ParseFloat(want, 64)
 			g, e2 := strconv.ParseFloat(got, 64)
-			if e1 != nil || e2 != nil || w <= 0 || math.IsNaN(w) || math.IsNaN(g) || math.IsInf(w, 0) || math.IsInf(g, 0) || g < w {
+			if e1 != nil || e2 != nil || w <= 0 || math.IsNaN(w) || math.IsNaN(g) || math.IsInf(
+				w,
+				0,
+			) || math.IsInf(g, 0) || g < w {
 				return false
 			}
 		} else if actual[key] != want {

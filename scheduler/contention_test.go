@@ -16,7 +16,11 @@ import (
 // A second action for a second worker, so two attempts are live at once.
 func (f *fixture) otherAction(t *testing.T) string {
 	t.Helper()
-	digest := f.c.putProto(&re.Action{CommandDigest: f.c.putProto(&re.Command{Arguments: []string{"/bin/echo", "other"}}), InputRootDigest: f.c.putProto(&re.Directory{}), Platform: &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}}})
+	digest := f.c.putProto(&re.Action{
+		CommandDigest:   f.c.putProto(&re.Command{Arguments: []string{"/bin/echo", "other"}}),
+		InputRootDigest: f.c.putProto(&re.Directory{}),
+		Platform:        &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}},
+	})
 	id, err := f.s.Start(f.ctx, &re.ExecuteRequest{ActionDigest: digest, SkipCacheLookup: true})
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +47,15 @@ func TestActionCacheWriteDoesNotBlockHeartbeats(t *testing.T) {
 	<-entered // Complete has committed and is now inside UpdateActionResult
 	heartbeat := make(chan error, 1)
 	go func() {
-		r, err := f.s.Heartbeat(f.ctx, &w.HeartbeatRequest{WorkerId: "cpu2", AttemptId: second.AttemptId, Epoch: second.Epoch, Phase: w.HeartbeatRequest_RUNNING})
+		r, err := f.s.Heartbeat(
+			f.ctx,
+			&w.HeartbeatRequest{
+				WorkerId:  "cpu2",
+				AttemptId: second.AttemptId,
+				Epoch:     second.Epoch,
+				Phase:     w.HeartbeatRequest_RUNNING,
+			},
+		)
 		if err == nil && r.Decision != w.HeartbeatResponse_CONTINUE {
 			err = fmt.Errorf("decision %v", r.Decision)
 		}
@@ -88,7 +100,11 @@ func TestFailedCommitStopsTheSchedulerAtTheDurablePrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(durable.Executions) != 0 || len(durable.Events) != 0 {
-		t.Fatalf("failed write reached the store: %d executions, %d events", len(durable.Executions), len(durable.Events))
+		t.Fatalf(
+			"failed write reached the store: %d executions, %d events",
+			len(durable.Executions),
+			len(durable.Events),
+		)
 	}
 	f.restart(t)
 	id := f.start(t, true)
@@ -101,13 +117,22 @@ func TestFailedCommitStopsTheSchedulerAtTheDurablePrefix(t *testing.T) {
 func TestRestartKeepsActionsQueuedUntilWorkersReturn(t *testing.T) {
 	f := setup(t, false)
 	f.start(t, true) // durable state from before the restart
-	restarted, err := New(f.ctx, f.store, f.c, Config{LeaseDuration: time.Second, RecoveryGrace: 2 * time.Second, Now: func() time.Time { return f.now }})
+	restarted, err := New(
+		f.ctx,
+		f.store,
+		f.c,
+		Config{LeaseDuration: time.Second, RecoveryGrace: 2 * time.Second, Now: func() time.Time { return f.now }},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.s = restarted
 	cpu := f.otherAction(t)
-	gpuDigest := f.c.putProto(&re.Action{CommandDigest: f.c.putProto(&re.Command{Arguments: []string{"/bin/gpu"}}), InputRootDigest: f.c.putProto(&re.Directory{}), Platform: &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "gpu"}}}})
+	gpuDigest := f.c.putProto(&re.Action{
+		CommandDigest:   f.c.putProto(&re.Command{Arguments: []string{"/bin/gpu"}}),
+		InputRootDigest: f.c.putProto(&re.Directory{}),
+		Platform:        &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "gpu"}}},
+	})
 	gpu, err := f.s.Start(f.ctx, &re.ExecuteRequest{ActionDigest: gpuDigest, SkipCacheLookup: true})
 	if err != nil {
 		t.Fatal(err)
@@ -144,11 +169,22 @@ func TestCommitWritesOnlyTheRowsItTouches(t *testing.T) {
 	store := &countingStore{Store: NewMemoryStore()}
 	history := NewLedger()
 	for i := range 5000 {
-		e := &Execution{ID: fmt.Sprintf("executions/old-%d", i), State: "Published", CurrentEpoch: 1, WinnerAttemptID: fmt.Sprintf("attempt-old-%d", i)}
+		e := &Execution{
+			ID:              fmt.Sprintf("executions/old-%d", i),
+			State:           "Published",
+			CurrentEpoch:    1,
+			WinnerAttemptID: fmt.Sprintf("attempt-old-%d", i),
+		}
 		history.Executions = append(history.Executions, e)
-		history.Attempts = append(history.Attempts, &Attempt{ID: e.WinnerAttemptID, ExecutionID: e.ID, Epoch: 1, Phase: "Committed"})
+		history.Attempts = append(
+			history.Attempts,
+			&Attempt{ID: e.WinnerAttemptID, ExecutionID: e.ID, Epoch: 1, Phase: "Committed"},
+		)
 	}
-	if err := store.Store.Save(context.Background(), &Change{Executions: history.Executions, Attempts: history.Attempts}); err != nil {
+	if err := store.Store.Save(
+		context.Background(),
+		&Change{Executions: history.Executions, Attempts: history.Attempts},
+	); err != nil {
 		t.Fatal(err)
 	}
 	f := &fixture{c: newCache(), now: time.Now(), ctx: context.Background()}
@@ -158,7 +194,11 @@ func TestCommitWritesOnlyTheRowsItTouches(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(f.s.Close)
-	f.digest = f.c.putProto(&re.Action{CommandDigest: f.c.putProto(&re.Command{Arguments: []string{"/bin/true"}}), InputRootDigest: f.c.putProto(&re.Directory{}), Platform: &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}}})
+	f.digest = f.c.putProto(&re.Action{
+		CommandDigest:   f.c.putProto(&re.Command{Arguments: []string{"/bin/true"}}),
+		InputRootDigest: f.c.putProto(&re.Directory{}),
+		Platform:        &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}},
+	})
 	f.register(t, "cpu1", map[string]string{"pool": "cpu"})
 	store.rows = nil
 	f.start(t, true)
@@ -169,7 +209,11 @@ func TestCommitWritesOnlyTheRowsItTouches(t *testing.T) {
 	}
 	for i, rows := range store.rows {
 		if rows > 2 {
-			t.Fatalf("commit %d wrote %d rows over a 5,000-execution history; want at most the execution and its attempt", i, rows)
+			t.Fatalf(
+				"commit %d wrote %d rows over a 5,000-execution history; want at most the execution and its attempt",
+				i,
+				rows,
+			)
 		}
 	}
 	if len(store.rows) != 5 { // created, leased, running, committed, published

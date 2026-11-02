@@ -33,7 +33,14 @@ func (c *GRPCCache) ReadBlob(ctx context.Context, instance string, d *re.Digest)
 	if err := validDigest(d); err != nil {
 		return nil, err
 	}
-	r, err := c.CAS.BatchReadBlobs(ctx, &re.BatchReadBlobsRequest{InstanceName: instance, Digests: []*re.Digest{d}, DigestFunction: re.DigestFunction_SHA256})
+	r, err := c.CAS.BatchReadBlobs(
+		ctx,
+		&re.BatchReadBlobsRequest{
+			InstanceName:   instance,
+			Digests:        []*re.Digest{d},
+			DigestFunction: re.DigestFunction_SHA256,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -53,17 +60,31 @@ func (c *GRPCCache) ReadBlob(ctx context.Context, instance string, d *re.Digest)
 	return b.Data, nil
 }
 func (c *GRPCCache) Missing(ctx context.Context, instance string, d []*re.Digest) ([]*re.Digest, error) {
-	r, err := c.CAS.FindMissingBlobs(ctx, &re.FindMissingBlobsRequest{InstanceName: instance, BlobDigests: d, DigestFunction: re.DigestFunction_SHA256})
+	r, err := c.CAS.FindMissingBlobs(
+		ctx,
+		&re.FindMissingBlobsRequest{InstanceName: instance, BlobDigests: d, DigestFunction: re.DigestFunction_SHA256},
+	)
 	if err != nil {
 		return nil, err
 	}
 	return r.MissingBlobDigests, nil
 }
 func (c *GRPCCache) GetActionResult(ctx context.Context, instance string, d *re.Digest) (*re.ActionResult, error) {
-	return c.AC.GetActionResult(ctx, &re.GetActionResultRequest{InstanceName: instance, ActionDigest: d, DigestFunction: re.DigestFunction_SHA256})
+	return c.AC.GetActionResult(
+		ctx,
+		&re.GetActionResultRequest{InstanceName: instance, ActionDigest: d, DigestFunction: re.DigestFunction_SHA256},
+	)
 }
 func (c *GRPCCache) UpdateActionResult(ctx context.Context, instance string, d *re.Digest, r *re.ActionResult) error {
-	_, err := c.AC.UpdateActionResult(ctx, &re.UpdateActionResultRequest{InstanceName: instance, ActionDigest: d, ActionResult: r, DigestFunction: re.DigestFunction_SHA256})
+	_, err := c.AC.UpdateActionResult(
+		ctx,
+		&re.UpdateActionResultRequest{
+			InstanceName:   instance,
+			ActionDigest:   d,
+			ActionResult:   r,
+			DigestFunction: re.DigestFunction_SHA256,
+		},
+	)
 	return err
 }
 func validDigest(d *re.Digest) error {

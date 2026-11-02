@@ -11,8 +11,63 @@ func goodFixture() (Ledger, []Evidence) {
 	p := map[string]string{"pool": "cpu", "OSFamily": "Linux", "ISA": "x86-64", "cpu.min": "2"}
 	actual := map[string]string{"pool": "cpu", "OSFamily": "Linux", "ISA": "x86-64", "cpu": "4"}
 	d := []Digest{hashBytes([]byte("out"))}
-	l := Ledger{SchemaVersion: 1, Executions: []Execution{{ID: "e", Platform: p, CurrentEpoch: 1, WinnerAttemptID: "a"}}, Attempts: []Attempt{{ID: "a", ExecutionID: "e", Epoch: 1, WorkerID: "w", WorkerPlatform: actual, AttemptDir: "/attempt/a", CgroupEmpty: true, Status: "OK", Published: true, ResultDigests: d}}, Events: []Event{{Sequence: 1, Kind: "execution_created", ExecutionID: "e"}, {Sequence: 3, Kind: "lease_granted", ExecutionID: "e", AttemptID: "a", Epoch: 1}, {Sequence: 7, Kind: "cas_verified", ExecutionID: "e", AttemptID: "a", Epoch: 1}, {Sequence: 8, Kind: "attempt_committed", ExecutionID: "e", AttemptID: "a", Epoch: 1}, {Sequence: 10, Kind: "ac_published", ExecutionID: "e", AttemptID: "a", Epoch: 1}}}
-	rows := []Evidence{{Source: "worker", Kind: "lease_verified", Sequence: 2, ExecutionID: "e", AttemptID: "a", Epoch: 1, WorkerPlatform: actual}, {Source: "worker", Kind: "cgroup_empty", Sequence: 4, ExecutionID: "e", AttemptID: "a", Epoch: 1, AttemptDir: "/attempt/a", Empty: true}, {Source: "worker", Kind: "result_reported", Sequence: 5, ExecutionID: "e", AttemptID: "a", Epoch: 1, AttemptDir: "/attempt/a"}, {Source: "cas", Kind: "cas_verified", Sequence: 6, ExecutionID: "e", AttemptID: "a", Epoch: 1, Digests: d}, {Source: "ac", Kind: "ac_write", Sequence: 9, ExecutionID: "e", AttemptID: "a", Epoch: 1}}
+	l := Ledger{
+		SchemaVersion: 1,
+		Executions:    []Execution{{ID: "e", Platform: p, CurrentEpoch: 1, WinnerAttemptID: "a"}},
+		Attempts: []Attempt{
+			{
+				ID:             "a",
+				ExecutionID:    "e",
+				Epoch:          1,
+				WorkerID:       "w",
+				WorkerPlatform: actual,
+				AttemptDir:     "/attempt/a",
+				CgroupEmpty:    true,
+				Status:         "OK",
+				Published:      true,
+				ResultDigests:  d,
+			},
+		},
+		Events: []Event{
+			{Sequence: 1, Kind: "execution_created", ExecutionID: "e"},
+			{Sequence: 3, Kind: "lease_granted", ExecutionID: "e", AttemptID: "a", Epoch: 1},
+			{Sequence: 7, Kind: "cas_verified", ExecutionID: "e", AttemptID: "a", Epoch: 1},
+			{Sequence: 8, Kind: "attempt_committed", ExecutionID: "e", AttemptID: "a", Epoch: 1},
+			{Sequence: 10, Kind: "ac_published", ExecutionID: "e", AttemptID: "a", Epoch: 1},
+		},
+	}
+	rows := []Evidence{
+		{
+			Source:         "worker",
+			Kind:           "lease_verified",
+			Sequence:       2,
+			ExecutionID:    "e",
+			AttemptID:      "a",
+			Epoch:          1,
+			WorkerPlatform: actual,
+		},
+		{
+			Source:      "worker",
+			Kind:        "cgroup_empty",
+			Sequence:    4,
+			ExecutionID: "e",
+			AttemptID:   "a",
+			Epoch:       1,
+			AttemptDir:  "/attempt/a",
+			Empty:       true,
+		},
+		{
+			Source:      "worker",
+			Kind:        "result_reported",
+			Sequence:    5,
+			ExecutionID: "e",
+			AttemptID:   "a",
+			Epoch:       1,
+			AttemptDir:  "/attempt/a",
+		},
+		{Source: "cas", Kind: "cas_verified", Sequence: 6, ExecutionID: "e", AttemptID: "a", Epoch: 1, Digests: d},
+		{Source: "ac", Kind: "ac_write", Sequence: 9, ExecutionID: "e", AttemptID: "a", Epoch: 1},
+	}
 	action := &re.Action{Platform: &re.Platform{}}
 	for key, value := range p {
 		action.Platform.Properties = append(action.Platform.Properties, &re.Platform_Property{Name: key, Value: value})
@@ -52,7 +107,10 @@ func TestInvariantMutations(t *testing.T) {
 		{"missing-blob", 1, func(l *Ledger, e *[]Evidence) { (*e)[3].Digests = nil }},
 		{"stale-epoch", 2, func(l *Ledger, e *[]Evidence) { l.Executions[0].CurrentEpoch = 2 }},
 		{"multiple-commit", 2, func(l *Ledger, e *[]Evidence) {
-			l.Events = append(l.Events, Event{Sequence: 11, Kind: "attempt_committed", ExecutionID: "e", AttemptID: "a", Epoch: 1})
+			l.Events = append(
+				l.Events,
+				Event{Sequence: 11, Kind: "attempt_committed", ExecutionID: "e", AttemptID: "a", Epoch: 1},
+			)
 		}},
 		{"platform-mismatch", 3, func(l *Ledger, e *[]Evidence) { l.Executions[0].Platform["image"] = "sha256:new" }},
 		{"hardware-cached", 4, func(l *Ledger, e *[]Evidence) { l.Executions[0].HardwareTest = true }},
@@ -165,9 +223,17 @@ func TestRawProtocolCannotBeReplacedByLedgerClaims(t *testing.T) {
 	t.Run("tree-hidden-output", func(t *testing.T) {
 		l, rows := goodFixture()
 		file := hashBytes([]byte("hidden"))
-		treeRaw, _ := proto.Marshal(&re.Tree{Root: &re.Directory{Files: []*re.FileNode{{Name: "hidden", Digest: &re.Digest{Hash: file.Hash, SizeBytes: file.SizeBytes}}}}})
+		treeRaw, _ := proto.Marshal(&re.Tree{
+			Root: &re.Directory{
+				Files: []*re.FileNode{{Name: "hidden", Digest: &re.Digest{Hash: file.Hash, SizeBytes: file.SizeBytes}}},
+			},
+		})
 		td := hashBytes(treeRaw)
-		result, _ := proto.Marshal(&re.ActionResult{OutputDirectories: []*re.OutputDirectory{{Path: "out", TreeDigest: &re.Digest{Hash: td.Hash, SizeBytes: td.SizeBytes}}}})
+		result, _ := proto.Marshal(&re.ActionResult{
+			OutputDirectories: []*re.OutputDirectory{
+				{Path: "out", TreeDigest: &re.Digest{Hash: td.Hash, SizeBytes: td.SizeBytes}},
+			},
+		})
 		l.Attempts[0].Result = result
 		l.Attempts[0].ResultDigests = []Digest{td}
 		rows[2].Result = result

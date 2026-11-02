@@ -61,7 +61,11 @@ func TestRealWorkerTransientNVMLFailureGatesRPCsAndRecoversFreshIdentity(t *test
 	if err := os.Mkdir(cgroup, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cgroup, "cgroup.subtree_control"), []byte("+cpu +memory +pids"), 0600); err != nil {
+	if err := os.WriteFile(
+		filepath.Join(cgroup, "cgroup.subtree_control"),
+		[]byte("+cpu +memory +pids"),
+		0600,
+	); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -85,7 +89,18 @@ func TestRealWorkerTransientNVMLFailureGatesRPCsAndRecoversFreshIdentity(t *test
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = log.Close() })
-	args := []string{"--scheduler", listener.Addr().String(), "--cgroup-root", cgroup, "--root", filepath.Join(dir, "worker"), "--id", "independent-nvml", "--property", "pool=gpu"}
+	args := []string{
+		"--scheduler",
+		listener.Addr().String(),
+		"--cgroup-root",
+		cgroup,
+		"--root",
+		filepath.Join(dir, "worker"),
+		"--id",
+		"independent-nvml",
+		"--property",
+		"pool=gpu",
+	}
 	command := exec.Command(binary, args...)
 	command.Env = append(os.Environ(), "LD_LIBRARY_PATH="+dir, "REMEX_TEST_NVML_GATE="+gate)
 	command.Stdout, command.Stderr = log, log
@@ -132,7 +147,10 @@ func TestRealWorkerTransientNVMLFailureGatesRPCsAndRecoversFreshIdentity(t *test
 	}
 	wait("first recovered lease", func() bool { _, leases := observer.observations(); return len(leases) > 0 })
 	registrations, leases = observer.observations()
-	if len(registrations) != 1 || !strings.Contains(registrations[0], "GPU-independent-first") || !strings.Contains(leases[0], "GPU-independent-first") {
+	if len(registrations) != 1 || !strings.Contains(
+		registrations[0],
+		"GPU-independent-first",
+	) || !strings.Contains(leases[0], "GPU-independent-first") {
 		t.Fatalf("first observed identity: %v %v", registrations, leases)
 	}
 	beforeLog, _ := os.ReadFile(logPath)
@@ -141,7 +159,10 @@ func TestRealWorkerTransientNVMLFailureGatesRPCsAndRecoversFreshIdentity(t *test
 	}
 	wait("second NVML outage", func() bool {
 		data, _ := os.ReadFile(logPath)
-		return strings.Count(string(data), "NVML initialization failed") > strings.Count(string(beforeLog), "NVML initialization failed")
+		return strings.Count(string(data), "NVML initialization failed") > strings.Count(
+			string(beforeLog),
+			"NVML initialization failed",
+		)
 	})
 	_, leases = observer.observations()
 	pausedCount := len(leases)

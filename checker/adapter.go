@@ -50,7 +50,11 @@ func AdaptCapture(records []CaptureRecord) (CaptureAdaptation, error) {
 	previous := int64(0)
 	for _, record := range records {
 		if record.Sequence != previous+1 {
-			return out, fmt.Errorf("capture sequences must start at 1 and be contiguous: got %d after %d", record.Sequence, previous)
+			return out, fmt.Errorf(
+				"capture sequences must start at 1 and be contiguous: got %d after %d",
+				record.Sequence,
+				previous,
+			)
 		}
 		previous = record.Sequence
 		if captureID == "" {
@@ -114,7 +118,13 @@ func AdaptCapture(records []CaptureRecord) (CaptureAdaptation, error) {
 	identity := func(c *capturedCall) Evidence {
 		epoch, _ := strconv.ParseInt(meta(c, "x-remex-epoch"), 10, 64)
 		anchor, _ := strconv.ParseInt(meta(c, "x-remex-ledger-sequence"), 10, 64)
-		return Evidence{ExecutionID: meta(c, "x-remex-execution-id"), AttemptID: meta(c, "x-remex-attempt-id"), Epoch: epoch, OrderDomain: captureID, LedgerAnchor: anchor}
+		return Evidence{
+			ExecutionID:  meta(c, "x-remex-execution-id"),
+			AttemptID:    meta(c, "x-remex-attempt-id"),
+			Epoch:        epoch,
+			OrderDomain:  captureID,
+			LedgerAnchor: anchor,
+		}
 	}
 	// Gather complete, digest-verified ByteStream read/write contents. Partial or
 	// compressed resources remain gaps instead of silently becoming Tree proofs.
@@ -205,9 +215,15 @@ func AdaptCapture(records []CaptureRecord) (CaptureAdaptation, error) {
 	for digest, data := range blobs {
 		capturedBlobs = append(capturedBlobs, Blob{Digest: digest, Data: data})
 	}
-	sort.Slice(capturedBlobs, func(i, j int) bool { return capturedBlobs[i].Digest.Hash < capturedBlobs[j].Digest.Hash })
+	sort.Slice(
+		capturedBlobs,
+		func(i, j int) bool { return capturedBlobs[i].Digest.Hash < capturedBlobs[j].Digest.Hash },
+	)
 	if len(capturedBlobs) > 0 {
-		out.Evidence = append(out.Evidence, Evidence{Source: "cas", Kind: "blob_content", OrderDomain: captureID, Blobs: capturedBlobs})
+		out.Evidence = append(
+			out.Evidence,
+			Evidence{Source: "cas", Kind: "blob_content", OrderDomain: captureID, Blobs: capturedBlobs},
+		)
 	}
 	for _, call := range ordered {
 		if !good(call) || call.start.Method != "/remex.worker.v1.WorkerService/Lease" || len(call.responses) != 1 {
@@ -243,8 +259,25 @@ func AdaptCapture(records []CaptureRecord) (CaptureAdaptation, error) {
 			Driver string `json:"driver_version"`
 		}
 		_ = json.Unmarshal(wireData(request, 3), &snapshot)
-		verified := snapshot.UUID != "" && snapshot.CC == properties["gpu.cc"] && strings.Split(snapshot.Driver, ".")[0] == properties["gpu.driver_major"]
-		row := Evidence{Source: "worker", Kind: "lease_verified", Sequence: call.requests[0].Sequence, ExecutionID: string(wireData(response, 2)), AttemptID: string(wireData(response, 3)), Epoch: wireNumber(response, 4), ActionDigest: digest, Action: wireData(response, 8), Command: wireData(response, 9), WorkerPlatform: properties, DeviceVerified: verified, OrderDomain: captureID, RawRecordIDs: []int64{call.requests[0].Sequence, call.responses[0].Sequence}}
+		verified := snapshot.UUID != "" && snapshot.CC == properties["gpu.cc"] && strings.Split(
+			snapshot.Driver,
+			".",
+		)[0] == properties["gpu.driver_major"]
+		row := Evidence{
+			Source:         "worker",
+			Kind:           "lease_verified",
+			Sequence:       call.requests[0].Sequence,
+			ExecutionID:    string(wireData(response, 2)),
+			AttemptID:      string(wireData(response, 3)),
+			Epoch:          wireNumber(response, 4),
+			ActionDigest:   digest,
+			Action:         wireData(response, 8),
+			Command:        wireData(response, 9),
+			WorkerPlatform: properties,
+			DeviceVerified: verified,
+			OrderDomain:    captureID,
+			RawRecordIDs:   []int64{call.requests[0].Sequence, call.responses[0].Sequence},
+		}
 		row.InstanceName = string(wireData(response, 6))
 		leases[row.AttemptID] = row
 		out.Evidence = append(out.Evidence, row)
@@ -256,7 +289,10 @@ func AdaptCapture(records []CaptureRecord) (CaptureAdaptation, error) {
 			gap(call, "unary Complete has multiple request frames")
 			continue
 		}
-		unknownComplete := call.start.Method == "/remex.worker.v1.WorkerService/Complete" && call.end != nil && call.end.StatusCode != 0 && len(call.requests) == 1
+		unknownComplete := call.start.Method == "/remex.worker.v1.WorkerService/Complete" &&
+			call.end != nil &&
+			call.end.StatusCode != 0 &&
+			len(call.requests) == 1
 		if !good(call) && !unknownComplete {
 			if call.start.Kind == "start" && call.end == nil {
 				gap(call, "unfinished RPC")
@@ -291,7 +327,19 @@ func AdaptCapture(records []CaptureRecord) (CaptureAdaptation, error) {
 				continue
 			}
 			status := int32(wireNumber(request, 5))
-			row := Evidence{Source: "worker", Kind: "result_reported", Sequence: call.requests[0].Sequence, ExecutionID: lease.ExecutionID, AttemptID: attempt, Epoch: wireNumber(request, 3), Result: append([]byte{}, wireData(request, 4)...), StatusCode: &status, AttemptDir: string(wireData(request, 12)), OrderDomain: captureID, RawRecordIDs: []int64{call.requests[0].Sequence}}
+			row := Evidence{
+				Source:       "worker",
+				Kind:         "result_reported",
+				Sequence:     call.requests[0].Sequence,
+				ExecutionID:  lease.ExecutionID,
+				AttemptID:    attempt,
+				Epoch:        wireNumber(request, 3),
+				Result:       append([]byte{}, wireData(request, 4)...),
+				StatusCode:   &status,
+				AttemptDir:   string(wireData(request, 12)),
+				OrderDomain:  captureID,
+				RawRecordIDs: []int64{call.requests[0].Sequence},
+			}
 			if unknownComplete {
 				row.CompleteDecision = "UNKNOWN"
 				row.Detail = "Complete was submitted; transport ended without a confirmed decision"
@@ -353,7 +401,22 @@ func AdaptCapture(records []CaptureRecord) (CaptureAdaptation, error) {
 					gap(call, "independent memory.events oom_kill counter missing or invalid")
 					continue
 				}
-				out.Evidence = append(out.Evidence, Evidence{Source: "worker", Kind: "cgroup_empty", Sequence: observation.Sequence, ExecutionID: lease.ExecutionID, AttemptID: attempt, Epoch: row.Epoch, AttemptDir: row.AttemptDir, Empty: empty, OOMKill: &oom, OrderDomain: captureID, RawRecordIDs: []int64{observation.Sequence}})
+				out.Evidence = append(
+					out.Evidence,
+					Evidence{
+						Source:       "worker",
+						Kind:         "cgroup_empty",
+						Sequence:     observation.Sequence,
+						ExecutionID:  lease.ExecutionID,
+						AttemptID:    attempt,
+						Epoch:        row.Epoch,
+						AttemptDir:   row.AttemptDir,
+						Empty:        empty,
+						OOMKill:      &oom,
+						OrderDomain:  captureID,
+						RawRecordIDs: []int64{observation.Sequence},
+					},
+				)
 			}
 		case "/build.bazel.remote.execution.v2.ContentAddressableStorage/FindMissingBlobs":
 			row := identity(call)
@@ -416,7 +479,10 @@ func AdaptCapture(records []CaptureRecord) (CaptureAdaptation, error) {
 		}
 	}
 	for _, detail := range out.Gaps {
-		out.Evidence = append(out.Evidence, Evidence{Source: "capture", Kind: "evidence_gap", Detail: detail, OrderDomain: captureID})
+		out.Evidence = append(
+			out.Evidence,
+			Evidence{Source: "capture", Kind: "evidence_gap", Detail: detail, OrderDomain: captureID},
+		)
 	}
 	sort.SliceStable(out.Evidence, func(i, j int) bool { return out.Evidence[i].Sequence < out.Evidence[j].Sequence })
 	return out, nil

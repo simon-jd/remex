@@ -130,8 +130,21 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 		// for a 10% flake in 1,000 commits with 10% infrastructure noise.
 		c.Budget = 2000
 	}
-	r := BisectResult{Conclusion: ConclusionInconclusive, Revisions: append([]string(nil), c.Revisions...), Signature: c.Signature, Budget: c.Budget, Probes: []Probe{}}
-	if len(c.Revisions) < 2 || c.Alpha <= 0 || c.Alpha >= 1 || c.CalibrationRuns < 1 || c.CalibrationRuns > 10000 || c.CalibrationFailures < 1 || c.Budget < 1 || runner == nil {
+	r := BisectResult{
+		Conclusion: ConclusionInconclusive,
+		Revisions:  append([]string(nil), c.Revisions...),
+		Signature:  c.Signature,
+		Budget:     c.Budget,
+		Probes:     []Probe{},
+	}
+	if len(c.Revisions) < 2 ||
+		c.Alpha <= 0 ||
+		c.Alpha >= 1 ||
+		c.CalibrationRuns < 1 ||
+		c.CalibrationRuns > 10000 ||
+		c.CalibrationFailures < 1 ||
+		c.Budget < 1 ||
+		runner == nil {
 		return r, fmt.Errorf("invalid bisection configuration")
 	}
 	seen := map[string]bool{}
@@ -145,7 +158,13 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 	// probe runs a revision until n valid runs, or until enoughFailures
 	// matching failures (0: no limit), or, with earlyBad, the first one.
 	probe := func(index, n int, purpose Purpose, earlyBad bool, enoughFailures int) Probe {
-		p := Probe{Revision: c.Revisions[index], Purpose: purpose, Decision: DecisionSkip, Counts: map[Category]int{}, Observations: []Observation{}}
+		p := Probe{
+			Revision:     c.Revisions[index],
+			Purpose:      purpose,
+			Decision:     DecisionSkip,
+			Counts:       map[Category]int{},
+			Observations: []Observation{},
+		}
 		valid, failures := 0, 0
 		other := false
 		for valid < n {

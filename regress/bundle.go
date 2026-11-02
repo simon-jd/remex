@@ -40,7 +40,10 @@ type Bundle struct {
 }
 
 func safeRelative(name string) bool {
-	return name != "" && !strings.ContainsAny(name, "\\\x00\n\r") && !path.IsAbs(name) && path.Clean(name) == name && name != ".." && !strings.HasPrefix(name, "../")
+	return name != "" && !strings.ContainsAny(
+		name,
+		"\\\x00\n\r",
+	) && !path.IsAbs(name) && path.Clean(name) == name && name != ".." && !strings.HasPrefix(name, "../")
 }
 
 // ExportBundle creates a self-contained content bundle, never a list of CAS
@@ -139,7 +142,12 @@ func ExportBundle(inputRoot, destination string, b Bundle) (err error) {
 			if target != graph[name].target {
 				return fmt.Errorf("input symlink changed during export: %s", name)
 			}
-			if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0777, Typeflag: tar.TypeSymlink, Linkname: target}); err != nil {
+			if err := tw.WriteHeader(&tar.Header{
+				Name:     name,
+				Mode:     0777,
+				Typeflag: tar.TypeSymlink,
+				Linkname: target,
+			}); err != nil {
 				return err
 			}
 			b.Inputs = append(b.Inputs, InputFile{Path: name, Type: "symlink", LinkTarget: target})
@@ -177,7 +185,10 @@ func ExportBundle(inputRoot, destination string, b Bundle) (err error) {
 		if n != info.Size() {
 			return fmt.Errorf("input changed while reading: %s", name)
 		}
-		b.Inputs = append(b.Inputs, InputFile{Path: name, SHA256: hex.EncodeToString(sum.Sum(nil)), Size: n, Executable: info.Mode()&0111 != 0})
+		b.Inputs = append(
+			b.Inputs,
+			InputFile{Path: name, SHA256: hex.EncodeToString(sum.Sum(nil)), Size: n, Executable: info.Mode()&0111 != 0},
+		)
 		return nil
 	})
 	closeErr := tw.Close()

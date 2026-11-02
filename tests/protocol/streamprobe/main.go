@@ -56,7 +56,15 @@ func (p *proxy) send(operation *op.Operation, send func(*op.Operation) error) er
 		m.StdoutStreamName = "remex-live-stdout/" + operation.Name
 		m.StderrStreamName = "remex-live-stderr/" + operation.Name
 		operation.Metadata, _ = anypb.New(&m)
-		p.record("advertised", map[string]any{"operation": operation.Name, "stdout": m.StdoutStreamName, "stderr": m.StderrStreamName, "stage": m.Stage.String()})
+		p.record(
+			"advertised",
+			map[string]any{
+				"operation": operation.Name,
+				"stdout":    m.StdoutStreamName,
+				"stderr":    m.StderrStreamName,
+				"stage":     m.Stage.String(),
+			},
+		)
 	}
 	return send(operation)
 }
@@ -133,7 +141,10 @@ func main() {
 		defer conn.Close()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		stream, err := bs.NewByteStreamClient(conn).Read(ctx, &bs.ReadRequest{ResourceName: "remex-live-stdout/selfcheck"})
+		stream, err := bs.NewByteStreamClient(conn).Read(
+			ctx,
+			&bs.ReadRequest{ResourceName: "remex-live-stdout/selfcheck"},
+		)
 		if err != nil {
 			panic(err)
 		}
@@ -162,7 +173,12 @@ func main() {
 	e, c := dial(*upstream), dial(*cas)
 	defer e.Close()
 	defer c.Close()
-	p := &proxy{exec: re.NewExecutionClient(e), cap: re.NewCapabilitiesClient(e), cache: bs.NewByteStreamClient(c), log: json.NewEncoder(f)}
+	p := &proxy{
+		exec:  re.NewExecutionClient(e),
+		cap:   re.NewCapabilitiesClient(e),
+		cache: bs.NewByteStreamClient(c),
+		log:   json.NewEncoder(f),
+	}
 	s := grpc.NewServer()
 	re.RegisterExecutionServer(s, p)
 	re.RegisterCapabilitiesServer(s, p)

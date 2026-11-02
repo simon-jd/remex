@@ -38,7 +38,13 @@ func actionPlatform(a *re.Action) map[string]string {
 // inspectProtocol derives all eligibility and output-reference facts from raw
 // independently captured protobufs, never from scheduler-derived JSON fields.
 func inspectProtocol(l Ledger, external []Evidence, issue func(int, string, string, string, string)) rawFacts {
-	facts := rawFacts{actions: map[string]*re.Action{}, platforms: map[string]map[string]string{}, results: map[string]*re.ActionResult{}, digests: map[string][]Digest{}, status: map[string]int32{}}
+	facts := rawFacts{
+		actions:   map[string]*re.Action{},
+		platforms: map[string]map[string]string{},
+		results:   map[string]*re.ActionResult{},
+		digests:   map[string][]Digest{},
+		status:    map[string]int32{},
+	}
 	committed := map[string]bool{}
 	for _, event := range l.Events {
 		if event.Kind == "attempt_committed" {
@@ -67,7 +73,13 @@ func inspectProtocol(l Ledger, external []Evidence, issue func(int, string, stri
 				continue
 			}
 			if row.ActionDigest != e.ActionDigest || hashBytes(row.Action) != e.ActionDigest {
-				issue(1, "action_digest_mismatch", e.ID, row.AttemptID, "captured Action bytes do not match execution key")
+				issue(
+					1,
+					"action_digest_mismatch",
+					e.ID,
+					row.AttemptID,
+					"captured Action bytes do not match execution key",
+				)
 				continue
 			}
 			var a re.Action
@@ -98,7 +110,9 @@ func inspectProtocol(l Ledger, external []Evidence, issue func(int, string, stri
 				}
 			}
 			for _, row := range external {
-				if row.ExecutionID == e.ID && row.Command != nil && hashBytes(row.Command) == modelDigest(a.CommandDigest) {
+				if row.ExecutionID == e.ID &&
+					row.Command != nil &&
+					hashBytes(row.Command) == modelDigest(a.CommandDigest) {
 					var command re.Command
 					if proto.Unmarshal(row.Command, &command) == nil {
 						found = true
@@ -109,7 +123,13 @@ func inspectProtocol(l Ledger, external []Evidence, issue func(int, string, stri
 				}
 			}
 			if !found {
-				issue(3, "evidence_missing", e.ID, "", "Action has no platform; digest-verified original Command required")
+				issue(
+					3,
+					"evidence_missing",
+					e.ID,
+					"",
+					"Action has no platform; digest-verified original Command required",
+				)
 			}
 		}
 		facts.platforms[e.ID] = p
@@ -123,7 +143,11 @@ func inspectProtocol(l Ledger, external []Evidence, issue func(int, string, stri
 	}
 	for _, a := range l.Attempts {
 		for _, row := range external {
-			if row.Source != "worker" || row.Kind != "result_reported" || row.AttemptID != a.ID || row.ExecutionID != a.ExecutionID || row.Epoch != a.Epoch {
+			if row.Source != "worker" ||
+				row.Kind != "result_reported" ||
+				row.AttemptID != a.ID ||
+				row.ExecutionID != a.ExecutionID ||
+				row.Epoch != a.Epoch {
 				continue
 			}
 			if row.CompleteDecision == "FENCED" || row.CompleteDecision == "REJECTED" {
@@ -136,7 +160,13 @@ func inspectProtocol(l Ledger, external []Evidence, issue func(int, string, stri
 				continue
 			}
 			if row.Result == nil || row.StatusCode == nil {
-				issue(1, "evidence_missing", a.ExecutionID, a.ID, "worker report requires raw ActionResult and numeric status")
+				issue(
+					1,
+					"evidence_missing",
+					a.ExecutionID,
+					a.ID,
+					"worker report requires raw ActionResult and numeric status",
+				)
 				continue
 			}
 			var result re.ActionResult
@@ -161,15 +191,33 @@ func inspectProtocol(l Ledger, external []Evidence, issue func(int, string, stri
 			}
 			facts.digests[a.ID] = digests
 			if !containsDigests(digests, a.ResultDigests) || !containsDigests(a.ResultDigests, digests) {
-				issue(1, "derived_digests_mismatch", a.ExecutionID, a.ID, "ledger output references differ from captured ActionResult/Tree")
+				issue(
+					1,
+					"derived_digests_mismatch",
+					a.ExecutionID,
+					a.ID,
+					"ledger output references differ from captured ActionResult/Tree",
+				)
 			}
 			if int(result.ExitCode) != a.ExitCode {
-				issue(4, "derived_exit_code_mismatch", a.ExecutionID, a.ID, "ledger exit code differs from captured ActionResult")
+				issue(
+					4,
+					"derived_exit_code_mismatch",
+					a.ExecutionID,
+					a.ID,
+					"ledger exit code differs from captured ActionResult",
+				)
 			}
 			if a.Result != nil {
 				var ledgerResult re.ActionResult
 				if err := proto.Unmarshal(a.Result, &ledgerResult); err != nil || !proto.Equal(&ledgerResult, &result) {
-					issue(1, "ledger_result_mismatch", a.ExecutionID, a.ID, "ledger result differs from worker-reported result")
+					issue(
+						1,
+						"ledger_result_mismatch",
+						a.ExecutionID,
+						a.ID,
+						"ledger result differs from worker-reported result",
+					)
 				}
 			}
 		}
@@ -189,10 +237,22 @@ func inspectProtocol(l Ledger, external []Evidence, issue func(int, string, stri
 			continue
 		}
 		if row.ActionDigest != e.ActionDigest {
-			issue(1, "ac_key_mismatch", row.ExecutionID, row.AttemptID, "observed AC key differs from execution Action digest")
+			issue(
+				1,
+				"ac_key_mismatch",
+				row.ExecutionID,
+				row.AttemptID,
+				"observed AC key differs from execution Action digest",
+			)
 		}
 		if row.InstanceName != e.InstanceName {
-			issue(1, "ac_instance_mismatch", row.ExecutionID, row.AttemptID, "captured AC instance differs from execution")
+			issue(
+				1,
+				"ac_instance_mismatch",
+				row.ExecutionID,
+				row.AttemptID,
+				"captured AC instance differs from execution",
+			)
 		}
 		if row.Result == nil {
 			issue(1, "evidence_missing", row.ExecutionID, row.AttemptID, "AC write requires raw published ActionResult")
@@ -207,13 +267,29 @@ func inspectProtocol(l Ledger, external []Evidence, issue func(int, string, stri
 		if winner == nil {
 			issue(1, "evidence_missing", row.ExecutionID, row.AttemptID, "raw winning worker result missing")
 		} else if !proto.Equal(winner, &published) {
-			issue(1, "ac_result_mismatch", row.ExecutionID, row.AttemptID, "published result differs from winning attempt")
+			issue(
+				1,
+				"ac_result_mismatch",
+				row.ExecutionID,
+				row.AttemptID,
+				"published result differs from winning attempt",
+			)
 		}
 		if action := facts.actions[row.ExecutionID]; action != nil {
 			p := facts.platforms[row.ExecutionID]
 			status, hasStatus := facts.status[row.AttemptID]
-			if action.DoNotCache || p["remex-hw"] == "true" || p["remex-hw"] == "1" || published.ExitCode != 0 || (hasStatus && status != 0) {
-				issue(4, "raw_uncacheable_published", row.ExecutionID, row.AttemptID, "raw protocol evidence forbids this AC write")
+			if action.DoNotCache ||
+				p["remex-hw"] == "true" ||
+				p["remex-hw"] == "1" ||
+				published.ExitCode != 0 ||
+				(hasStatus && status != 0) {
+				issue(
+					4,
+					"raw_uncacheable_published",
+					row.ExecutionID,
+					row.AttemptID,
+					"raw protocol evidence forbids this AC write",
+				)
 			}
 		}
 	}

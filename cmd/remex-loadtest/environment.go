@@ -26,7 +26,12 @@ func (s settings) Set(value string) error {
 // environment describes the host and store a run measured, so that records
 // from different machines or settings are not compared by accident.
 func environment(ctx context.Context, dsn string, extra settings) map[string]any {
-	env := map[string]any{"go_version": runtime.Version(), "goos": runtime.GOOS, "goarch": runtime.GOARCH, "cpus": runtime.NumCPU()}
+	env := map[string]any{
+		"go_version": runtime.Version(),
+		"goos":       runtime.GOOS,
+		"goarch":     runtime.GOARCH,
+		"cpus":       runtime.NumCPU(),
+	}
 	if model := procField("/proc/cpuinfo", "model name"); model != "" {
 		env["cpu_model"] = model
 	}
@@ -70,7 +75,16 @@ func postgresSettings(ctx context.Context, dsn string) map[string]string {
 		return out
 	}
 	defer conn.Close(ctx)
-	for _, name := range []string{"server_version", "fsync", "synchronous_commit", "wal_sync_method", "full_page_writes", "commit_delay", "shared_buffers", "max_wal_size"} {
+	for _, name := range []string{
+		"server_version",
+		"fsync",
+		"synchronous_commit",
+		"wal_sync_method",
+		"full_page_writes",
+		"commit_delay",
+		"shared_buffers",
+		"max_wal_size",
+	} {
 		var value string
 		if err := conn.QueryRow(ctx, "SHOW "+name).Scan(&value); err == nil {
 			out[name] = value

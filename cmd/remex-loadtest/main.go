@@ -102,7 +102,10 @@ func (h *harness) run(worker string) (bool, error) {
 		return false, err
 	}
 	for _, phase := range []w.HeartbeatRequest_Phase{w.HeartbeatRequest_RUNNING, w.HeartbeatRequest_UPLOADING} {
-		r, err := h.s.Heartbeat(h.ctx, &w.HeartbeatRequest{WorkerId: worker, AttemptId: lease.AttemptId, Epoch: lease.Epoch, Phase: phase})
+		r, err := h.s.Heartbeat(
+			h.ctx,
+			&w.HeartbeatRequest{WorkerId: worker, AttemptId: lease.AttemptId, Epoch: lease.Epoch, Phase: phase},
+		)
 		if err != nil {
 			return true, fmt.Errorf("heartbeat: %v", err)
 		}
@@ -216,7 +219,15 @@ func main() {
 			case <-time.After(100 * time.Millisecond):
 			}
 			started := time.Now()
-			r, err := s.Heartbeat(ctx, &w.HeartbeatRequest{WorkerId: "probe", AttemptId: probeLease.AttemptId, Epoch: probeLease.Epoch, Phase: phase})
+			r, err := s.Heartbeat(
+				ctx,
+				&w.HeartbeatRequest{
+					WorkerId:  "probe",
+					AttemptId: probeLease.AttemptId,
+					Epoch:     probeLease.Epoch,
+					Phase:     phase,
+				},
+			)
 			probe = append(probe, time.Since(started))
 			if err != nil {
 				log.Fatalf("probe heartbeat: %v", err)

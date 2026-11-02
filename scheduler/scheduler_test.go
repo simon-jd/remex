@@ -106,12 +106,22 @@ func setupWith(t *testing.T, noCache bool, store Store, inner *MemoryStore) *fix
 	t.Helper()
 	f := &fixture{c: newCache(), store: inner, now: time.Now(), ctx: context.Background()}
 	var err error
-	f.s, err = New(f.ctx, store, f.c, Config{LeaseDuration: time.Second, RecoveryGrace: 2 * time.Second, Now: func() time.Time { return f.now }})
+	f.s, err = New(
+		f.ctx,
+		store,
+		f.c,
+		Config{LeaseDuration: time.Second, RecoveryGrace: 2 * time.Second, Now: func() time.Time { return f.now }},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(f.s.Close)
-	f.digest = f.c.putProto(&re.Action{CommandDigest: f.c.putProto(&re.Command{Arguments: []string{"/bin/true"}}), InputRootDigest: f.c.putProto(&re.Directory{}), Platform: &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}}, DoNotCache: noCache})
+	f.digest = f.c.putProto(&re.Action{
+		CommandDigest:   f.c.putProto(&re.Command{Arguments: []string{"/bin/true"}}),
+		InputRootDigest: f.c.putProto(&re.Directory{}),
+		Platform:        &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}},
+		DoNotCache:      noCache,
+	})
 	f.register(t, "cpu1", map[string]string{"pool": "cpu"})
 	return f
 }
@@ -120,7 +130,12 @@ func setupWith(t *testing.T, noCache bool, store Store, inner *MemoryStore) *fix
 // supervisor does after a failure, and registers cpu1 again.
 func (f *fixture) restart(t *testing.T) {
 	t.Helper()
-	s, err := New(f.ctx, f.store, f.c, Config{LeaseDuration: time.Second, RecoveryGrace: 2 * time.Second, Now: func() time.Time { return f.now }})
+	s, err := New(
+		f.ctx,
+		f.store,
+		f.c,
+		Config{LeaseDuration: time.Second, RecoveryGrace: 2 * time.Second, Now: func() time.Time { return f.now }},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +167,15 @@ func (f *fixture) lease(t *testing.T, id string) *w.LeaseResponse {
 }
 func (f *fixture) running(t *testing.T, lease *w.LeaseResponse, worker string) {
 	t.Helper()
-	r, err := f.s.Heartbeat(f.ctx, &w.HeartbeatRequest{WorkerId: worker, AttemptId: lease.AttemptId, Epoch: lease.Epoch, Phase: w.HeartbeatRequest_RUNNING})
+	r, err := f.s.Heartbeat(
+		f.ctx,
+		&w.HeartbeatRequest{
+			WorkerId:  worker,
+			AttemptId: lease.AttemptId,
+			Epoch:     lease.Epoch,
+			Phase:     w.HeartbeatRequest_RUNNING,
+		},
+	)
 	if err != nil || r.Decision != w.HeartbeatResponse_CONTINUE {
 		t.Fatalf("heartbeat %v %v", r, err)
 	}
@@ -162,7 +185,14 @@ func completion(l *w.LeaseResponse, worker string, result *re.ActionResult) *w.C
 	if len(b) == 0 {
 		b = []byte{0x20, 0}
 	}
-	return &w.CompleteRequest{WorkerId: worker, AttemptId: l.AttemptId, Epoch: l.Epoch, ActionResult: b, CgroupEmpty: true, AttemptDir: "/attempts/" + l.AttemptId}
+	return &w.CompleteRequest{
+		WorkerId:     worker,
+		AttemptId:    l.AttemptId,
+		Epoch:        l.Epoch,
+		ActionResult: b,
+		CgroupEmpty:  true,
+		AttemptDir:   "/attempts/" + l.AttemptId,
+	}
 }
 func TestCommitOrderingDedupAndCachedResult(t *testing.T) {
 	f := setup(t, false)
@@ -261,7 +291,10 @@ func TestCachePolicy(t *testing.T) {
 				var action re.Action
 				b, _ := f.c.ReadBlob(f.ctx, "", f.digest)
 				_ = proto.Unmarshal(b, &action)
-				action.Platform.Properties = append(action.Platform.Properties, &re.Platform_Property{Name: "remex-hw", Value: "true"})
+				action.Platform.Properties = append(
+					action.Platform.Properties,
+					&re.Platform_Property{Name: "remex-hw", Value: "true"},
+				)
 				f.digest = f.c.putProto(&action)
 			}
 			f.start(t, true)
@@ -284,7 +317,14 @@ func TestTreeDescendantMissingBlocksCommit(t *testing.T) {
 	file := f.c.put([]byte("content"))
 	tree := f.c.putProto(&re.Tree{Root: &re.Directory{Files: []*re.FileNode{{Name: "child", Digest: file}}}})
 	delete(f.c.blobs, file.Hash)
-	resp, err := f.s.Complete(f.ctx, completion(lease, "cpu1", &re.ActionResult{OutputDirectories: []*re.OutputDirectory{{Path: "out", TreeDigest: tree}}}))
+	resp, err := f.s.Complete(
+		f.ctx,
+		completion(
+			lease,
+			"cpu1",
+			&re.ActionResult{OutputDirectories: []*re.OutputDirectory{{Path: "out", TreeDigest: tree}}},
+		),
+	)
 	if err != nil || resp.Decision != w.CompleteResponse_REJECTED || f.c.writes != 0 {
 		t.Fatalf("missing nested blob accepted %v %v", resp, err)
 	}
@@ -305,7 +345,10 @@ func TestLedgerFailureCannotAdvanceState(t *testing.T) {
 	if durable.execution(id).State != "Queued" || len(durable.Attempts) != 0 {
 		t.Fatal("durable state advanced despite the failed commit")
 	}
-	if _, err = f.s.Lease(f.ctx, &w.LeaseRequest{WorkerId: "cpu1", Properties: map[string]string{"pool": "cpu"}}); status.Code(err) != codes.Unavailable {
+	if _, err = f.s.Lease(
+		f.ctx,
+		&w.LeaseRequest{WorkerId: "cpu1", Properties: map[string]string{"pool": "cpu"}},
+	); status.Code(err) != codes.Unavailable {
 		t.Fatalf("lease from memory ahead of the store = %v, want Unavailable", err)
 	}
 }
@@ -314,14 +357,20 @@ func TestUnschedulableAndProperties(t *testing.T) {
 	var action re.Action
 	b, _ := f.c.ReadBlob(f.ctx, "", f.digest)
 	_ = proto.Unmarshal(b, &action)
-	action.Platform.Properties = append(action.Platform.Properties, &re.Platform_Property{Name: "image", Value: "sha256:required"})
+	action.Platform.Properties = append(
+		action.Platform.Properties,
+		&re.Platform_Property{Name: "image", Value: "sha256:required"},
+	)
 	f.digest = f.c.putProto(&action)
 	id := f.start(t, true)
 	e := f.s.Export().execution(id)
 	if e.State != "Unschedulable" || e.StatusCode != int32(codes.FailedPrecondition) {
 		t.Fatalf("%+v", e)
 	}
-	if Match(map[string]string{"cpu.min": "8", "mem_gb.min": "4"}, map[string]string{"cpu": "4", "mem_gb": "8"}) == nil {
+	if Match(
+		map[string]string{"cpu.min": "8", "mem_gb.min": "4"},
+		map[string]string{"cpu": "4", "mem_gb": "8"},
+	) == nil {
 		t.Fatal("minimum ignored")
 	}
 	if Match(map[string]string{"gpu.cc": "9.0"}, map[string]string{"gpu.cc": "8.9"}) == nil {
@@ -339,7 +388,15 @@ func TestCancellationAndCommandTimeout(t *testing.T) {
 	lease := f.lease(t, "cpu1")
 	f.running(t, lease, "cpu1")
 	f.now = f.now.Add(100 * time.Millisecond)
-	r, err := f.s.Heartbeat(f.ctx, &w.HeartbeatRequest{WorkerId: "cpu1", AttemptId: lease.AttemptId, Epoch: lease.Epoch, Phase: w.HeartbeatRequest_RUNNING})
+	r, err := f.s.Heartbeat(
+		f.ctx,
+		&w.HeartbeatRequest{
+			WorkerId:  "cpu1",
+			AttemptId: lease.AttemptId,
+			Epoch:     lease.Epoch,
+			Phase:     w.HeartbeatRequest_RUNNING,
+		},
+	)
 	if err != nil || r.Decision != w.HeartbeatResponse_CONTINUE {
 		t.Fatalf("timeout reporting lease lost %v %v", r, err)
 	}
@@ -357,7 +414,12 @@ func TestRestartUsesFreshGraceNotWallClock(t *testing.T) {
 	lease := f.lease(t, "cpu1")
 	f.running(t, lease, "cpu1")
 	f.now = f.now.Add(-24 * time.Hour)
-	s, err := New(f.ctx, f.store, f.c, Config{LeaseDuration: time.Second, RecoveryGrace: 2 * time.Second, Now: func() time.Time { return f.now }})
+	s, err := New(
+		f.ctx,
+		f.store,
+		f.c,
+		Config{LeaseDuration: time.Second, RecoveryGrace: 2 * time.Second, Now: func() time.Time { return f.now }},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +446,11 @@ func TestRealGRPCExecuteAndWaitExecution(t *testing.T) {
 	w.RegisterWorkerServiceServer(server, f.s)
 	go server.Serve(listener)
 	defer server.Stop()
-	conn, err := grpc.NewClient("passthrough:///remex", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }))
+	conn, err := grpc.NewClient(
+		"passthrough:///remex",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -438,10 +504,18 @@ func TestRealGRPCExecuteAndWaitExecution(t *testing.T) {
 
 func TestGPUDeviceSnapshotAndNumericProperties(t *testing.T) {
 	props := map[string]string{"pool": "gpu", "gpu.cc": "8.9", "gpu.driver_major": "595"}
-	if err := validWorker("gpu1", props, `{"uuid":"GPU-123","compute_capability":"8.9","driver_version":"595.91.07"}`); err != nil {
+	if err := validWorker(
+		"gpu1",
+		props,
+		`{"uuid":"GPU-123","compute_capability":"8.9","driver_version":"595.91.07"}`,
+	); err != nil {
 		t.Fatal(err)
 	}
-	if err := validWorker("gpu1", props, `{"uuid":"GPU-123","compute_capability":"9.0","driver_version":"595.91.07"}`); err == nil {
+	if err := validWorker(
+		"gpu1",
+		props,
+		`{"uuid":"GPU-123","compute_capability":"9.0","driver_version":"595.91.07"}`,
+	); err == nil {
 		t.Fatal("snapshot mismatch accepted")
 	}
 	for _, bad := range []string{"NaN", "+Inf", "-Inf", "0", "-1"} {
@@ -493,7 +567,10 @@ func TestWorkerTimeoutUploadingCommitsWithoutRetry(t *testing.T) {
 			f, id, lease := timeoutFixture(t)
 			f.now = f.now.Add(100 * time.Millisecond)
 			for _, phase := range []w.HeartbeatRequest_Phase{w.HeartbeatRequest_RUNNING, w.HeartbeatRequest_UPLOADING} {
-				r, err := f.s.Heartbeat(f.ctx, &w.HeartbeatRequest{WorkerId: "cpu1", AttemptId: lease.AttemptId, Epoch: lease.Epoch, Phase: phase})
+				r, err := f.s.Heartbeat(
+					f.ctx,
+					&w.HeartbeatRequest{WorkerId: "cpu1", AttemptId: lease.AttemptId, Epoch: lease.Epoch, Phase: phase},
+				)
 				if err != nil || r.Decision != w.HeartbeatResponse_CONTINUE {
 					t.Fatalf("timeout reporting lost lease: %v %v", r, err)
 				}
@@ -505,7 +582,10 @@ func TestWorkerTimeoutUploadingCommitsWithoutRetry(t *testing.T) {
 				t.Fatalf("timeout complete: %v %v", r, err)
 			}
 			e := f.s.Export().execution(id)
-			if e.StatusCode != int32(codes.DeadlineExceeded) || e.CurrentEpoch != 1 || e.State != "Committed" || f.c.writes != 0 {
+			if e.StatusCode != int32(codes.DeadlineExceeded) ||
+				e.CurrentEpoch != 1 ||
+				e.State != "Committed" ||
+				f.c.writes != 0 {
 				t.Fatalf("timeout became success or retry: %+v writes=%d", e, f.c.writes)
 			}
 		})
@@ -526,7 +606,10 @@ func TestInvocationMetadataJoinsInflightExecution(t *testing.T) {
 	f := setup(t, false)
 	start := func(invocation string) string {
 		raw, _ := proto.Marshal(&re.RequestMetadata{ToolInvocationId: invocation})
-		ctx := metadata.NewIncomingContext(f.ctx, metadata.Pairs("build.bazel.remote.execution.v2.requestmetadata-bin", string(raw)))
+		ctx := metadata.NewIncomingContext(
+			f.ctx,
+			metadata.Pairs("build.bazel.remote.execution.v2.requestmetadata-bin", string(raw)),
+		)
 		id, err := f.s.Start(ctx, &re.ExecuteRequest{ActionDigest: f.digest, SkipCacheLookup: true})
 		if err != nil {
 			t.Fatal(err)

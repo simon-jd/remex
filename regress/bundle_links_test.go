@@ -19,7 +19,17 @@ func TestBundlePreservesRelativeSymlinkGraph(t *testing.T) {
 	os.Symlink("runfiles/pkg/data", filepath.Join(root, "chain"))
 	os.Symlink(".", filepath.Join(root, "same"))
 	out := filepath.Join(top, "bundle")
-	err := ExportBundle(root, out, Bundle{Command: []string{"sh", "-c", "test \"$(readlink runfiles/pkg/data)\" = ../../data; cat chain; cat same/data"}})
+	err := ExportBundle(
+		root,
+		out,
+		Bundle{
+			Command: []string{
+				"sh",
+				"-c",
+				"test \"$(readlink runfiles/pkg/data)\" = ../../data; cat chain; cat same/data",
+			},
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

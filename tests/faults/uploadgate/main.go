@@ -28,7 +28,10 @@ type proxy struct {
 	gated            atomic.Bool
 }
 
-func (p *proxy) FindMissingBlobs(ctx context.Context, req *re.FindMissingBlobsRequest) (*re.FindMissingBlobsResponse, error) {
+func (p *proxy) FindMissingBlobs(
+	ctx context.Context,
+	req *re.FindMissingBlobsRequest,
+) (*re.FindMissingBlobsResponse, error) {
 	return p.cas.FindMissingBlobs(ctx, req)
 }
 func (p *proxy) Read(req *bs.ReadRequest, server bs.ByteStream_ReadServer) error {
@@ -75,7 +78,12 @@ func (p *proxy) Write(server bs.ByteStream_WriteServer) error {
 		return err
 	}
 	if strings.Contains(resource, "/blobs/"+p.digest+"/") && p.gated.CompareAndSwap(false, true) {
-		data, _ := json.Marshal(map[string]any{"resource": resource, "committed_size": response.CommittedSize, "time": time.Now().UTC(), "boundary": "actual upstream final stderr upload succeeded; response withheld before worker Complete"})
+		data, _ := json.Marshal(map[string]any{
+			"resource":       resource,
+			"committed_size": response.CommittedSize,
+			"time":           time.Now().UTC(),
+			"boundary":       "actual upstream final stderr upload succeeded; response withheld before worker Complete",
+		})
 		if err := os.WriteFile(p.observed, data, 0600); err != nil {
 			return err
 		}
@@ -95,7 +103,12 @@ func main() {
 		panic(err)
 	}
 	defer conn.Close()
-	p := &proxy{cas: re.NewContentAddressableStorageClient(conn), stream: bs.NewByteStreamClient(conn), digest: *digest, observed: *observed}
+	p := &proxy{
+		cas:      re.NewContentAddressableStorageClient(conn),
+		stream:   bs.NewByteStreamClient(conn),
+		digest:   *digest,
+		observed: *observed,
+	}
 	server := grpc.NewServer(grpc.MaxRecvMsgSize(64 << 20))
 	re.RegisterContentAddressableStorageServer(server, p)
 	bs.RegisterByteStreamServer(server, p)

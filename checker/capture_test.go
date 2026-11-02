@@ -21,7 +21,10 @@ type recordingCache struct {
 	re.UnimplementedActionCacheServer
 }
 
-func (recordingCache) UpdateActionResult(ctx context.Context, r *re.UpdateActionResultRequest) (*re.ActionResult, error) {
+func (recordingCache) UpdateActionResult(
+	ctx context.Context,
+	r *re.UpdateActionResultRequest,
+) (*re.ActionResult, error) {
 	md, _ := metadata.FromIncomingContext(ctx)
 	if len(md.Get("x-remex-attempt-id")) == 0 {
 		return nil, context.Canceled
@@ -37,7 +40,11 @@ func TestTransparentRecorderCapturesActualGRPCFrames(t *testing.T) {
 	defer backend.Stop()
 	dial := func(listener *bufconn.Listener) *grpc.ClientConn {
 		t.Helper()
-		conn, err := grpc.NewClient("passthrough:///buffer", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }))
+		conn, err := grpc.NewClient(
+			"passthrough:///buffer",
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }),
+		)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -55,9 +62,19 @@ func TestTransparentRecorderCapturesActualGRPCFrames(t *testing.T) {
 	defer clientConn.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("x-remex-attempt-id", "a", "x-remex-execution-id", "e", "x-remex-epoch", "1"))
+	ctx = metadata.NewOutgoingContext(
+		ctx,
+		metadata.Pairs("x-remex-attempt-id", "a", "x-remex-execution-id", "e", "x-remex-epoch", "1"),
+	)
 	want := &re.ActionResult{StdoutRaw: []byte("actual grpc transport")}
-	got, err := re.NewActionCacheClient(clientConn).UpdateActionResult(ctx, &re.UpdateActionResultRequest{InstanceName: "tenant-a", ActionDigest: &re.Digest{Hash: "key", SizeBytes: 3}, ActionResult: want})
+	got, err := re.NewActionCacheClient(clientConn).UpdateActionResult(
+		ctx,
+		&re.UpdateActionResultRequest{
+			InstanceName: "tenant-a",
+			ActionDigest: &re.Digest{Hash: "key", SizeBytes: 3},
+			ActionResult: want,
+		},
+	)
 	if err != nil || !proto.Equal(want, got) {
 		t.Fatalf("proxy changed RPC: %v %v", got, err)
 	}
@@ -69,7 +86,9 @@ func TestTransparentRecorderCapturesActualGRPCFrames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(adapted.Evidence) != 1 || adapted.Evidence[0].Kind != "ac_write" || adapted.Evidence[0].InstanceName != "tenant-a" {
+	if len(adapted.Evidence) != 1 ||
+		adapted.Evidence[0].Kind != "ac_write" ||
+		adapted.Evidence[0].InstanceName != "tenant-a" {
 		t.Fatalf("unexpected capture: %+v", adapted)
 	}
 	var observed re.ActionResult
@@ -89,7 +108,11 @@ func TestRecorderTerminalStatusClosesCaptureForCall(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := r.write(CaptureRecord{CallID: 1, Method: "/example.Service/Call", Kind: "request_forwarded"}); err == nil {
+	if err := r.write(CaptureRecord{
+		CallID: 1,
+		Method: "/example.Service/Call",
+		Kind:   "request_forwarded",
+	}); err == nil {
 		t.Fatal("late forwarding goroutine appended after terminal status")
 	}
 	records, err := ReadCapture(bytes.NewReader(raw.Bytes()))
@@ -99,9 +122,16 @@ func TestRecorderTerminalStatusClosesCaptureForCall(t *testing.T) {
 }
 
 func TestAmbiguousACWriteRemainsMachineReadableGap(t *testing.T) {
-	request, _ := proto.Marshal(&re.UpdateActionResultRequest{InstanceName: "tenant-a", ActionResult: &re.ActionResult{ExitCode: 1}})
+	request, _ := proto.Marshal(&re.UpdateActionResultRequest{
+		InstanceName: "tenant-a",
+		ActionResult: &re.ActionResult{ExitCode: 1},
+	})
 	method := "/build.bazel.remote.execution.v2.ActionCache/UpdateActionResult"
-	records := []CaptureRecord{{CaptureID: "c", Sequence: 1, CallID: 1, Method: method, Kind: "start"}, {CaptureID: "c", Sequence: 2, CallID: 1, Method: method, Kind: "request", Message: request}, {CaptureID: "c", Sequence: 3, CallID: 1, Method: method, Kind: "end", StatusCode: 4}}
+	records := []CaptureRecord{
+		{CaptureID: "c", Sequence: 1, CallID: 1, Method: method, Kind: "start"},
+		{CaptureID: "c", Sequence: 2, CallID: 1, Method: method, Kind: "request", Message: request},
+		{CaptureID: "c", Sequence: 3, CallID: 1, Method: method, Kind: "end", StatusCode: 4},
+	}
 	adapted, err := AdaptCapture(records)
 	if err != nil {
 		t.Fatal(err)
@@ -177,7 +207,11 @@ func TestRawCacheInstanceMustMatchExecution(t *testing.T) {
 
 func TestCaptureFramingCannotLoseOrMergeRPCs(t *testing.T) {
 	method := "/build.bazel.remote.execution.v2.ActionCache/UpdateActionResult"
-	base := []CaptureRecord{{CaptureID: "c", Sequence: 1, CallID: 1, Endpoint: "cache", Method: method, Kind: "start"}, {CaptureID: "c", Sequence: 2, CallID: 1, Endpoint: "cache", Method: method, Kind: "request", Message: []byte{}}, {CaptureID: "c", Sequence: 3, CallID: 1, Endpoint: "cache", Method: method, Kind: "end", StatusCode: 4}}
+	base := []CaptureRecord{
+		{CaptureID: "c", Sequence: 1, CallID: 1, Endpoint: "cache", Method: method, Kind: "start"},
+		{CaptureID: "c", Sequence: 2, CallID: 1, Endpoint: "cache", Method: method, Kind: "request", Message: []byte{}},
+		{CaptureID: "c", Sequence: 3, CallID: 1, Endpoint: "cache", Method: method, Kind: "end", StatusCode: 4},
+	}
 	tests := map[string]func([]CaptureRecord) []CaptureRecord{
 		"missing-start": func(r []CaptureRecord) []CaptureRecord {
 			r = r[1:]
@@ -193,8 +227,12 @@ func TestCaptureFramingCannotLoseOrMergeRPCs(t *testing.T) {
 			}
 			return r
 		},
-		"duplicate-start":  func(r []CaptureRecord) []CaptureRecord { r[1].Kind = "start"; return r },
-		"duplicate-end":    func(r []CaptureRecord) []CaptureRecord { copy := r[2]; copy.Sequence = 4; return append(r, copy) },
+		"duplicate-start": func(r []CaptureRecord) []CaptureRecord { r[1].Kind = "start"; return r },
+		"duplicate-end": func(r []CaptureRecord) []CaptureRecord {
+			copy := r[2]
+			copy.Sequence = 4
+			return append(r, copy)
+		},
 		"method-changed":   func(r []CaptureRecord) []CaptureRecord { r[1].Method = "/other/Call"; return r },
 		"endpoint-changed": func(r []CaptureRecord) []CaptureRecord { r[1].Endpoint = "worker"; return r },
 	}
@@ -212,9 +250,19 @@ func TestWarmTreeComesFromActualBatchReadResponse(t *testing.T) {
 	l, _ := goodFixture()
 	treeBytes, _ := proto.Marshal(&re.Tree{Root: &re.Directory{}})
 	digest := hashBytes(treeBytes)
-	resultBytes, _ := proto.Marshal(&re.ActionResult{OutputDirectories: []*re.OutputDirectory{{Path: "out", TreeDigest: &re.Digest{Hash: digest.Hash, SizeBytes: digest.SizeBytes}}}})
-	batchRequest, _ := proto.Marshal(&re.BatchReadBlobsRequest{Digests: []*re.Digest{{Hash: digest.Hash, SizeBytes: digest.SizeBytes}}})
-	batchResponse, _ := proto.Marshal(&re.BatchReadBlobsResponse{Responses: []*re.BatchReadBlobsResponse_Response{{Digest: &re.Digest{Hash: digest.Hash, SizeBytes: digest.SizeBytes}, Data: treeBytes}}})
+	resultBytes, _ := proto.Marshal(&re.ActionResult{
+		OutputDirectories: []*re.OutputDirectory{
+			{Path: "out", TreeDigest: &re.Digest{Hash: digest.Hash, SizeBytes: digest.SizeBytes}},
+		},
+	})
+	batchRequest, _ := proto.Marshal(&re.BatchReadBlobsRequest{
+		Digests: []*re.Digest{{Hash: digest.Hash, SizeBytes: digest.SizeBytes}},
+	})
+	batchResponse, _ := proto.Marshal(&re.BatchReadBlobsResponse{
+		Responses: []*re.BatchReadBlobsResponse_Response{
+			{Digest: &re.Digest{Hash: digest.Hash, SizeBytes: digest.SizeBytes}, Data: treeBytes},
+		},
+	})
 	bytesField := func(wire []byte, n protowire.Number, data []byte) []byte {
 		return protowire.AppendBytes(protowire.AppendTag(wire, n, protowire.BytesType), data)
 	}
@@ -235,7 +283,17 @@ func TestWarmTreeComesFromActualBatchReadResponse(t *testing.T) {
 	complete = bytesField(complete, 12, []byte("/attempt/a"))
 	var records []CaptureRecord
 	add := func(call int64, method, kind string, data []byte) {
-		records = append(records, CaptureRecord{CaptureID: "batch", Sequence: int64(len(records) + 1), CallID: call, Method: method, Kind: kind, Message: data})
+		records = append(
+			records,
+			CaptureRecord{
+				CaptureID: "batch",
+				Sequence:  int64(len(records) + 1),
+				CallID:    call,
+				Method:    method,
+				Kind:      kind,
+				Message:   data,
+			},
+		)
 	}
 	lm := "/remex.worker.v1.WorkerService/Lease"
 	add(1, lm, "start", nil)

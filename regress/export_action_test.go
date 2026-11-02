@@ -45,12 +45,45 @@ func actionExportFixture(t *testing.T) ([]byte, actionFixtureCAS, *re.Action) {
 	}
 	file := put([]byte("#!/bin/sh\nset -e\ntest \"$(readlink link)\" = input\ntest ! -e old-output\ntest -z \"${REMEX_HOST_ONLY:-}\"\ntest -z \"${REMEX_REPLAY_SEED:-}\"\ntest \"$REMEX_SEED\" = 42\ncat link\n"))
 	data := put([]byte("initial-input-only"))
-	root := message(&re.Directory{Files: []*re.FileNode{{Name: "run", Digest: file, IsExecutable: true}, {Name: "input", Digest: data}}, Symlinks: []*re.SymlinkNode{{Name: "link", Target: "input"}}})
-	command := &re.Command{Arguments: []string{"./run"}, EnvironmentVariables: []*re.Command_EnvironmentVariable{{Name: "REMEX_SEED", Value: "42"}}}
-	action := &re.Action{CommandDigest: message(command), InputRootDigest: root, Platform: &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}}}
+	root := message(&re.Directory{
+		Files:    []*re.FileNode{{Name: "run", Digest: file, IsExecutable: true}, {Name: "input", Digest: data}},
+		Symlinks: []*re.SymlinkNode{{Name: "link", Target: "input"}},
+	})
+	command := &re.Command{
+		Arguments:            []string{"./run"},
+		EnvironmentVariables: []*re.Command_EnvironmentVariable{{Name: "REMEX_SEED", Value: "42"}},
+	}
+	action := &re.Action{
+		CommandDigest:   message(command),
+		InputRootDigest: root,
+		Platform:        &re.Platform{Properties: []*re.Platform_Property{{Name: "pool", Value: "cpu"}}},
+	}
 	ad := message(action)
 	cd := action.CommandDigest
-	ledger := map[string]any{"schema_version": 1, "executions": []any{map[string]any{"id": "e", "instance_name": "recorded-instance", "action_digest": bundleDigest(ad), "action": cas[ad.Hash], "command": cas[cd.Hash], "platform": map[string]string{"pool": "cpu"}, "winner_attempt_id": "a", "current_epoch": int64(1)}}, "attempts": []any{map[string]any{"id": "a", "execution_id": "e", "epoch": int64(1), "worker_id": "cpu-original", "worker_platform": map[string]string{"pool": "cpu"}}}}
+	ledger := map[string]any{
+		"schema_version": 1,
+		"executions": []any{
+			map[string]any{
+				"id":                "e",
+				"instance_name":     "recorded-instance",
+				"action_digest":     bundleDigest(ad),
+				"action":            cas[ad.Hash],
+				"command":           cas[cd.Hash],
+				"platform":          map[string]string{"pool": "cpu"},
+				"winner_attempt_id": "a",
+				"current_epoch":     int64(1),
+			},
+		},
+		"attempts": []any{
+			map[string]any{
+				"id":              "a",
+				"execution_id":    "e",
+				"epoch":           int64(1),
+				"worker_id":       "cpu-original",
+				"worker_platform": map[string]string{"pool": "cpu"},
+			},
+		},
+	}
 	wire, err := json.Marshal(ledger)
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +97,14 @@ func TestExportReconstructsExactInitialMerkleInputs(t *testing.T) {
 	}
 	ledger, cas, action := actionExportFixture(t)
 	out := filepath.Join(t.TempDir(), "bundle")
-	if err := ExportActionBundleFromCAS(context.Background(), bytes.NewReader(ledger), "e", out, Bundle{Revision: "explicit-revision", BazelVersion: "9.3.0"}, cas); err != nil {
+	if err := ExportActionBundleFromCAS(
+		context.Background(),
+		bytes.NewReader(ledger),
+		"e",
+		out,
+		Bundle{Revision: "explicit-revision", BazelVersion: "9.3.0"},
+		cas,
+	); err != nil {
 		t.Fatal(err)
 	}
 	var manifest Bundle
@@ -75,7 +115,11 @@ func TestExportReconstructsExactInitialMerkleInputs(t *testing.T) {
 	if err = json.Unmarshal(raw, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if len(manifest.Inputs) != 3 || manifest.Source == nil || manifest.Source.InputRootDigest != bundleDigest(action.InputRootDigest) || len(manifest.Source.Directories) != 1 || manifest.Seed != 42 {
+	if len(manifest.Inputs) != 3 ||
+		manifest.Source == nil ||
+		manifest.Source.InputRootDigest != bundleDigest(action.InputRootDigest) ||
+		len(manifest.Source.Directories) != 1 ||
+		manifest.Seed != 42 {
 		t.Fatalf("incorrect input provenance: %+v", manifest)
 	}
 	// Replay after removing every source CAS byte; no source directory was used.
@@ -123,7 +167,14 @@ func TestExportFailsClosedOnCorruptionAndMetadataOverrides(t *testing.T) {
 			ledger, cas, action := actionExportFixture(t)
 			ledger, b := tc.mutate(ledger, cas, action)
 			out := filepath.Join(t.TempDir(), "bundle")
-			if err := ExportActionBundleFromCAS(context.Background(), bytes.NewReader(ledger), "e", out, b, cas); err == nil {
+			if err := ExportActionBundleFromCAS(
+				context.Background(),
+				bytes.NewReader(ledger),
+				"e",
+				out,
+				b,
+				cas,
+			); err == nil {
 				t.Fatal("unverified content or overridden provenance exported")
 			}
 			if _, err := os.Stat(out); !os.IsNotExist(err) {

@@ -183,7 +183,15 @@ func wrongUpper95(k, n int) float64 {
 }
 
 func summarize(name string, reruns, budget, commits int, p, infra float64, outcomes []string, runs []int) stats {
-	s := stats{Strategy: name, Reruns: reruns, Budget: budget, Commits: commits, FailureRate: p, InfraRate: infra, Trials: len(outcomes)}
+	s := stats{
+		Strategy:    name,
+		Reruns:      reruns,
+		Budget:      budget,
+		Commits:     commits,
+		FailureRate: p,
+		InfraRate:   infra,
+		Trials:      len(outcomes),
+	}
 	wrong := 0
 	for _, o := range outcomes {
 		switch o {
@@ -238,7 +246,13 @@ func main() {
 						spent[name] = append(spent[name], runs)
 					}
 					newWorld := func(stream uint64) *world {
-						return &world{culprit: culprit, p: p, infra: infra, rng: rand.New(rand.NewPCG(seed, stream)), revisions: revisions}
+						return &world{
+							culprit:   culprit,
+							p:         p,
+							infra:     infra,
+							rng:       rand.New(rand.NewPCG(seed, stream)),
+							revisions: revisions,
+						}
 					}
 					for _, n := range []int{1, 5} {
 						found, runs := newWorld(uint64(n)).naive(n)
@@ -255,7 +269,11 @@ func main() {
 					for i, r := range revisions {
 						index[r] = i
 					}
-					runner := regress.RunnerFunc(func(_ context.Context, rev string, _ int) (regress.Observation, error) {
+					runner := regress.RunnerFunc(func(
+						_ context.Context,
+						rev string,
+						_ int,
+					) (regress.Observation, error) {
 						return w.run(index[rev]), nil
 					})
 					r, err := regress.Bisect(context.Background(), regress.BisectConfig{Revisions: revisions}, runner)
@@ -271,7 +289,16 @@ func main() {
 					_ = out.Encode(summarize(name, 0, 0, commits, p, infra, results[name], spent[name]))
 				}
 				for _, n := range rerunSweep {
-					_ = out.Encode(summarize("git-rerun", n, 0, commits, p, infra, results[fmt.Sprintf("git-rerun-%d", n)], spent[fmt.Sprintf("git-rerun-%d", n)]))
+					_ = out.Encode(summarize(
+						"git-rerun",
+						n,
+						0,
+						commits,
+						p,
+						infra,
+						results[fmt.Sprintf("git-rerun-%d", n)],
+						spent[fmt.Sprintf("git-rerun-%d", n)],
+					))
 				}
 				_ = out.Encode(summarize("remex", 0, budget, commits, p, infra, results["remex"], spent["remex"]))
 			}

@@ -113,10 +113,23 @@ func TestIdleHistoryExpiryExhaustsAttemptBudget(t *testing.T) {
 // Non-cacheable committed history is safe to skip only after error conditions
 // that publishLocked exposes have been preserved.
 func TestIdleHistoryPublishPendingErrorBoundaries(t *testing.T) {
-	for _, name := range []string{"ordinary_noncacheable", "missing_winner", "wrong_epoch", "duplicate_winner_id", "failed_scheduler", "malformed_result"} {
+	for _, name := range []string{
+		"ordinary_noncacheable",
+		"missing_winner",
+		"wrong_epoch",
+		"duplicate_winner_id",
+		"failed_scheduler",
+		"malformed_result",
+	} {
 		t.Run(name, func(t *testing.T) {
 			f := setup(t, true)
-			e := &Execution{ID: "committed", State: "Committed", CurrentEpoch: 2, WinnerAttemptID: "winner", DoNotCache: true}
+			e := &Execution{
+				ID:              "committed",
+				State:           "Committed",
+				CurrentEpoch:    2,
+				WinnerAttemptID: "winner",
+				DoNotCache:      true,
+			}
 			a := &Attempt{ID: "winner", ExecutionID: e.ID, Epoch: 2}
 			f.s.ledger.Executions = []*Execution{e}
 			f.s.ledger.Attempts = []*Attempt{a}
@@ -172,11 +185,16 @@ func TestPublishPendingContinuesPastAnEvictedResult(t *testing.T) {
 	delete(f.c.blobs, outputs[0].Hash) // the older result's output was evicted
 
 	err := f.s.PublishPending(f.ctx)
-	if status.Code(err) != codes.FailedPrecondition || !strings.Contains(err.Error(), ids[0]) || strings.Contains(err.Error(), ids[1]) {
+	if status.Code(err) != codes.FailedPrecondition || !strings.Contains(
+		err.Error(),
+		ids[0],
+	) || strings.Contains(err.Error(), ids[1]) {
 		t.Fatalf("PublishPending = %v, want only %s reported", err, ids[0])
 	}
 	ledger := f.s.Export()
-	if older, newer := ledger.execution(ids[0]).State, ledger.execution(ids[1]).State; older != "Committed" || newer != "Published" || f.c.writes != 1 {
+	if older, newer := ledger.execution(ids[0]).State, ledger.execution(ids[1]).State; older != "Committed" ||
+		newer != "Published" ||
+		f.c.writes != 1 {
 		t.Fatalf("states %s, %s with %d cache writes; want Committed, Published, 1", older, newer, f.c.writes)
 	}
 

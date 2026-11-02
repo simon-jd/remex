@@ -25,7 +25,17 @@ func TestFailedCompleteRetainsSubmissionWithoutInventingDecision(t *testing.T) {
 	complete = b(complete, 12, []byte("/attempt/a"))
 	var records []CaptureRecord
 	add := func(call int64, method, kind string, message []byte) {
-		records = append(records, CaptureRecord{CaptureID: "unknown", Sequence: int64(len(records) + 1), CallID: call, Method: method, Kind: kind, Message: message})
+		records = append(
+			records,
+			CaptureRecord{
+				CaptureID: "unknown",
+				Sequence:  int64(len(records) + 1),
+				CallID:    call,
+				Method:    method,
+				Kind:      kind,
+				Message:   message,
+			},
+		)
 	}
 	lm := "/remex.worker.v1.WorkerService/Lease"
 	cm := "/remex.worker.v1.WorkerService/Complete"

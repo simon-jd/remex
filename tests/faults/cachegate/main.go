@@ -36,11 +36,22 @@ func forwarded(ctx context.Context) context.Context {
 func (p *proxy) record(kind string, req *re.UpdateActionResultRequest) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	_ = json.NewEncoder(p.log).Encode(map[string]any{"kind": kind, "time": time.Now().UTC(), "instance": req.InstanceName, "action_digest": req.ActionDigest, "result": req.ActionResult})
+	_ = json.NewEncoder(p.log).Encode(map[string]any{
+		"kind":          kind,
+		"time":          time.Now().UTC(),
+		"instance":      req.InstanceName,
+		"action_digest": req.ActionDigest,
+		"result":        req.ActionResult,
+	})
 }
 func (p *proxy) pause(ctx context.Context, req *re.UpdateActionResultRequest) error {
 	p.record("gate_"+p.position, req)
-	data, _ := json.Marshal(map[string]any{"position": p.position, "action_digest": req.ActionDigest, "instance": req.InstanceName, "time": time.Now().UTC()})
+	data, _ := json.Marshal(map[string]any{
+		"position":      p.position,
+		"action_digest": req.ActionDigest,
+		"instance":      req.InstanceName,
+		"time":          time.Now().UTC(),
+	})
 	if err := os.WriteFile(p.observed, data, 0600); err != nil {
 		return err
 	}
@@ -59,7 +70,10 @@ func (p *proxy) pause(ctx context.Context, req *re.UpdateActionResultRequest) er
 func (p *proxy) BatchReadBlobs(ctx context.Context, req *re.BatchReadBlobsRequest) (*re.BatchReadBlobsResponse, error) {
 	return p.cas.BatchReadBlobs(forwarded(ctx), req)
 }
-func (p *proxy) FindMissingBlobs(ctx context.Context, req *re.FindMissingBlobsRequest) (*re.FindMissingBlobsResponse, error) {
+func (p *proxy) FindMissingBlobs(
+	ctx context.Context,
+	req *re.FindMissingBlobsRequest,
+) (*re.FindMissingBlobsResponse, error) {
 	return p.cas.FindMissingBlobs(forwarded(ctx), req)
 }
 func (p *proxy) GetActionResult(ctx context.Context, req *re.GetActionResultRequest) (*re.ActionResult, error) {
@@ -97,7 +111,11 @@ func main() {
 	if *position != "before" && *position != "after" {
 		panic("position must be before or after")
 	}
-	conn, err := grpc.NewClient(*upstream, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20)))
+	conn, err := grpc.NewClient(
+		*upstream,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20)),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -107,7 +125,14 @@ func main() {
 		panic(err)
 	}
 	defer log.Close()
-	p := &proxy{cas: re.NewContentAddressableStorageClient(conn), ac: re.NewActionCacheClient(conn), gate: *gate, observed: *observed, position: *position, log: log}
+	p := &proxy{
+		cas:      re.NewContentAddressableStorageClient(conn),
+		ac:       re.NewActionCacheClient(conn),
+		gate:     *gate,
+		observed: *observed,
+		position: *position,
+		log:      log,
+	}
 	server := grpc.NewServer(grpc.MaxRecvMsgSize(64 << 20))
 	re.RegisterContentAddressableStorageServer(server, p)
 	re.RegisterActionCacheServer(server, p)

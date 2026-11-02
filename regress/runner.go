@@ -132,7 +132,17 @@ func (r BazelRunner) Run(ctx context.Context, revision string, seed int) (Observ
 	}
 	defer os.RemoveAll(workRoot)
 	work := filepath.Join(workRoot, "worktree")
-	if out, err := exec.CommandContext(ctx, "git", "-C", r.Repository, "worktree", "add", "--detach", work, revision).CombinedOutput(); err != nil {
+	if out, err := exec.CommandContext(
+		ctx,
+		"git",
+		"-C",
+		r.Repository,
+		"worktree",
+		"add",
+		"--detach",
+		work,
+		revision,
+	).CombinedOutput(); err != nil {
 		return Observation{}, fmt.Errorf("worktree: %w: %s", err, out)
 	}
 	defer exec.Command("git", "-C", r.Repository, "worktree", "remove", "--force", work).Run()
@@ -147,7 +157,17 @@ func (r BazelRunner) Run(ctx context.Context, revision string, seed int) (Observ
 	invocation := hexID[:8] + "-" + hexID[8:12] + "-" + hexID[12:16] + "-" + hexID[16:20] + "-" + hexID[20:]
 	args := append([]string{"test"}, r.Flags...)
 	args = append(args, "--invocation_id="+invocation)
-	args = append(args, "--nocache_test_results", "--remote_accept_cached=false", "--flaky_test_attempts=1", "--runs_per_test=1", "--build_event_json_file="+bep, "--remote_grpc_log="+filepath.Join(evidence, "grpc.log"), "--execution_log_compact_file="+filepath.Join(evidence, "execution.log"), fmt.Sprintf("--test_env=REMEX_SEED=%d", seed))
+	args = append(
+		args,
+		"--nocache_test_results",
+		"--remote_accept_cached=false",
+		"--flaky_test_attempts=1",
+		"--runs_per_test=1",
+		"--build_event_json_file="+bep,
+		"--remote_grpc_log="+filepath.Join(evidence, "grpc.log"),
+		"--execution_log_compact_file="+filepath.Join(evidence, "execution.log"),
+		fmt.Sprintf("--test_env=REMEX_SEED=%d", seed),
+	)
 	args = append(args, r.Targets...)
 	cmd := exec.CommandContext(ctx, r.Bazel, args...)
 	cmd.Dir = work
@@ -168,7 +188,11 @@ func (r BazelRunner) Run(ctx context.Context, revision string, seed int) (Observ
 	log.Close()
 	f, err := os.Open(bep)
 	if err != nil {
-		return Observation{Category: Infrastructure, Detail: fmt.Sprintf("Bazel did not write BEP: %v; %v", runErr, err), Evidence: []string{evidence}}, nil
+		return Observation{
+			Category: Infrastructure,
+			Detail:   fmt.Sprintf("Bazel did not write BEP: %v; %v", runErr, err),
+			Evidence: []string{evidence},
+		}, nil
 	}
 	defer f.Close()
 	results, err := ReadBEP(f)
@@ -201,12 +225,19 @@ func (r BazelRunner) Run(ctx context.Context, revision string, seed int) (Observ
 	if r.SchedulerAdmin != "" {
 		attempts, err = invocationAttempts(ctx, r.SchedulerAdmin, invocation, evidence)
 		if err != nil {
-			return Observation{Category: Infrastructure, Detail: "ledger evidence unavailable: " + err.Error(), Evidence: []string{evidence}}, nil
+			return Observation{
+				Category: Infrastructure,
+				Detail:   "ledger evidence unavailable: " + err.Error(),
+				Evidence: []string{evidence},
+			}, nil
 		}
 	}
 	observation := Classify(results, attempts, "")
 	if observation.Category == Pass && runErr != nil {
-		observation = Observation{Category: Infrastructure, Detail: "Bazel invocation failed despite passing test results"}
+		observation = Observation{
+			Category: Infrastructure,
+			Detail:   "Bazel invocation failed despite passing test results",
+		}
 	}
 	observation.Evidence = append(observation.Evidence, evidence)
 	encoded, _ := json.MarshalIndent(observation, "", "  ")

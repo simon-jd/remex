@@ -59,7 +59,11 @@ func TestPostgresDurabilityIntegration(t *testing.T) {
 	}
 	// A canceled client cannot cancel the ownership connection or durable commit.
 	var originalXmin string
-	if err = store.conn.QueryRow(ctx, "SELECT xmin::text FROM executions WHERE id=$1", e.ID).Scan(&originalXmin); err != nil {
+	if err = store.conn.QueryRow(
+		ctx,
+		"SELECT xmin::text FROM executions WHERE id=$1",
+		e.ID,
+	).Scan(&originalXmin); err != nil {
 		t.Fatal(err)
 	}
 	cancelled, stop := context.WithCancel(ctx)
@@ -71,7 +75,11 @@ func TestPostgresDurabilityIntegration(t *testing.T) {
 		t.Fatalf("cancelled client destroyed commit: %v", err)
 	}
 	var unchangedXmin string
-	if err = store.conn.QueryRow(ctx, "SELECT xmin::text FROM executions WHERE id=$1", e.ID).Scan(&unchangedXmin); err != nil || unchangedXmin != originalXmin {
+	if err = store.conn.QueryRow(
+		ctx,
+		"SELECT xmin::text FROM executions WHERE id=$1",
+		e.ID,
+	).Scan(&unchangedXmin); err != nil || unchangedXmin != originalXmin {
 		t.Fatalf("unchanged row rewritten: %s -> %s, %v", originalXmin, unchangedXmin, err)
 	}
 	if err = store.Close(); err != nil {
@@ -105,7 +113,10 @@ func TestPostgresDurabilityIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	loaded.execution(e.ID).State = "Cancelled"
-	if err = reopened.Save(ctx, &Change{Executions: []*Execution{loaded.execution(e.ID)}}); !errors.Is(err, ErrStoreUnavailable) {
+	if err = reopened.Save(
+		ctx,
+		&Change{Executions: []*Execution{loaded.execution(e.ID)}},
+	); !errors.Is(err, ErrStoreUnavailable) {
 		t.Fatalf("lost leader connection not fatal: %v", err)
 	}
 }
@@ -126,7 +137,13 @@ func TestBazelRemoteCASIntegration(t *testing.T) {
 	fake := newCache()
 	content := []byte("remex scheduler CAS integration " + newID(""))
 	digest := fake.put(content)
-	write, err := client.BatchUpdateBlobs(ctx, &re.BatchUpdateBlobsRequest{Requests: []*re.BatchUpdateBlobsRequest_Request{{Digest: digest, Data: content}}, DigestFunction: re.DigestFunction_SHA256})
+	write, err := client.BatchUpdateBlobs(
+		ctx,
+		&re.BatchUpdateBlobsRequest{
+			Requests:       []*re.BatchUpdateBlobsRequest_Request{{Digest: digest, Data: content}},
+			DigestFunction: re.DigestFunction_SHA256,
+		},
+	)
 	if err != nil || len(write.GetResponses()) != 1 || write.Responses[0].Status.Code != 0 {
 		t.Fatalf("CAS write %v %v", write, err)
 	}
@@ -144,7 +161,10 @@ func TestBazelRemoteCASIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	read, err := cache.GetActionResult(ctx, "", actionDigest)
-	if err != nil || read.ExitCode != result.ExitCode || len(read.OutputFiles) != 1 || read.OutputFiles[0].Digest.Hash != digest.Hash {
+	if err != nil ||
+		read.ExitCode != result.ExitCode ||
+		len(read.OutputFiles) != 1 ||
+		read.OutputFiles[0].Digest.Hash != digest.Hash {
 		t.Fatalf("AC read %v %v", read, err)
 	}
 }
@@ -184,7 +204,10 @@ func TestPostgresDurablePublicationAuditIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ledger.Executions) != 1 || ledger.Executions[0].State != "Published" || !ledger.Attempts[0].Published || ledger.Events[len(ledger.Events)-1].Kind != "ac_published" {
+	if len(ledger.Executions) != 1 ||
+		ledger.Executions[0].State != "Published" ||
+		!ledger.Attempts[0].Published ||
+		ledger.Events[len(ledger.Events)-1].Kind != "ac_published" {
 		t.Fatalf("publication after durable observation was not persisted: %+v", ledger)
 	}
 }
@@ -226,7 +249,10 @@ func TestPostgresSnapshotSeesOneCommit(t *testing.T) {
 	e := &Execution{ID: "executions/snapshot", CurrentEpoch: 1, State: "0"}
 	a := &Attempt{ID: "attempt-snapshot", ExecutionID: e.ID, Epoch: 1, Phase: "0"}
 	l.event(time.Now(), "execution_created", e, a, nil)
-	if err = store.Save(ctx, &Change{Executions: []*Execution{e}, Attempts: []*Attempt{a}, Events: l.Events}); err != nil {
+	if err = store.Save(
+		ctx,
+		&Change{Executions: []*Execution{e}, Attempts: []*Attempt{a}, Events: l.Events},
+	); err != nil {
 		t.Fatal(err)
 	}
 	const commits = 300
@@ -236,7 +262,10 @@ func TestPostgresSnapshotSeesOneCommit(t *testing.T) {
 			execution, attempt := *e, *a
 			execution.State, attempt.Phase = strconv.Itoa(i), strconv.Itoa(i)
 			l.event(time.Now(), "advanced", &execution, &attempt, nil)
-			if err := store.Save(ctx, &Change{Executions: []*Execution{&execution}, Attempts: []*Attempt{&attempt}, Events: l.Events[i:]}); err != nil {
+			if err := store.Save(
+				ctx,
+				&Change{Executions: []*Execution{&execution}, Attempts: []*Attempt{&attempt}, Events: l.Events[i:]},
+			); err != nil {
 				written <- err
 				return
 			}
@@ -260,7 +289,12 @@ func TestPostgresSnapshotSeesOneCommit(t *testing.T) {
 			t.Fatal(err)
 		}
 		if want := strconv.Itoa(len(s.Events) - 1); s.Executions[0].State != want || s.Attempts[0].Phase != want {
-			t.Fatalf("snapshot mixes commits: execution at %s, attempt at %s, %d events", s.Executions[0].State, s.Attempts[0].Phase, len(s.Events))
+			t.Fatalf(
+				"snapshot mixes commits: execution at %s, attempt at %s, %d events",
+				s.Executions[0].State,
+				s.Attempts[0].Phase,
+				len(s.Events),
+			)
 		}
 	}
 }

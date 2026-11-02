@@ -51,7 +51,12 @@ type Recorder struct {
 }
 
 func NewRecorder(w io.Writer, cgroupRoot string) *Recorder {
-	return &Recorder{writer: w, id: fmt.Sprintf("capture-%d", time.Now().UnixNano()), CgroupRoot: cgroupRoot, ended: map[int64]bool{}}
+	return &Recorder{
+		writer:     w,
+		id:         fmt.Sprintf("capture-%d", time.Now().UnixNano()),
+		CgroupRoot: cgroupRoot,
+		ended:      map[int64]bool{},
+	}
 }
 func (r *Recorder) write(row CaptureRecord) error {
 	r.mu.Lock()
@@ -95,7 +100,10 @@ func (rawCodec) Unmarshal(data []byte, value any) error {
 // Server transparently relays unary and streaming RPCs through one upstream
 // connection. Capture failure fails the RPC rather than silently losing evidence.
 func (r *Recorder) Server(endpoint string, upstream *grpc.ClientConn) *grpc.Server {
-	return grpc.NewServer(grpc.ForceServerCodec(rawCodec{}), grpc.MaxRecvMsgSize(256<<20), grpc.MaxSendMsgSize(256<<20), grpc.UnknownServiceHandler(func(_ any, in grpc.ServerStream) error {
+	return grpc.NewServer(grpc.ForceServerCodec(rawCodec{}), grpc.MaxRecvMsgSize(256<<20), grpc.MaxSendMsgSize(256<<20), grpc.UnknownServiceHandler(func(
+		_ any,
+		in grpc.ServerStream,
+	) error {
 		method, ok := grpc.MethodFromServerStream(in)
 		if !ok {
 			return status.Error(codes.Internal, "RPC method missing")
@@ -112,7 +120,14 @@ func (r *Recorder) Server(endpoint string, upstream *grpc.ClientConn) *grpc.Serv
 		}
 		ctx, cancel := context.WithCancel(metadata.NewOutgoingContext(in.Context(), md))
 		defer cancel()
-		out, err := upstream.NewStream(ctx, &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}, method, grpc.ForceCodec(rawCodec{}), grpc.MaxCallRecvMsgSize(256<<20), grpc.MaxCallSendMsgSize(256<<20))
+		out, err := upstream.NewStream(
+			ctx,
+			&grpc.StreamDesc{ServerStreams: true, ClientStreams: true},
+			method,
+			grpc.ForceCodec(rawCodec{}),
+			grpc.MaxCallRecvMsgSize(256<<20),
+			grpc.MaxCallSendMsgSize(256<<20),
+		)
 		if err != nil {
 			row = base
 			row.Kind = "end"

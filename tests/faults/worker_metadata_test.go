@@ -34,8 +34,14 @@ func TestRealWorkerMetadataReflectsObservedPhases(t *testing.T) {
 		}
 		// The queue time is the scheduler's durable creation time, passed on
 		// with the lease: after submission and no later than the worker start.
-		if q := metadata.QueuedTimestamp; q == nil || q.AsTime().Before(before.Add(-time.Second)) || q.AsTime().After(metadata.WorkerStartTimestamp.AsTime()) {
-			t.Fatalf("queued timestamp %v is not the scheduler's creation time (worker start %v)", q, metadata.WorkerStartTimestamp)
+		if q := metadata.QueuedTimestamp; q == nil ||
+			q.AsTime().Before(before.Add(-time.Second)) ||
+			q.AsTime().After(metadata.WorkerStartTimestamp.AsTime()) {
+			t.Fatalf(
+				"queued timestamp %v is not the scheduler's creation time (worker start %v)",
+				q,
+				metadata.WorkerStartTimestamp,
+			)
 		}
 		phases := []struct {
 			name      string
@@ -58,7 +64,13 @@ func TestRealWorkerMetadataReflectsObservedPhases(t *testing.T) {
 			}
 			observed := phase.timestamp.AsTime()
 			if observed.Before(last) || observed.After(after) {
-				t.Fatalf("phase %s=%s outside monotonic observed wall-time order [%s,%s]", phase.name, observed, last, after)
+				t.Fatalf(
+					"phase %s=%s outside monotonic observed wall-time order [%s,%s]",
+					phase.name,
+					observed,
+					last,
+					after,
+				)
 			}
 			nanosecondsObserved = nanosecondsObserved || phase.timestamp.Nanos != 0
 			last = observed

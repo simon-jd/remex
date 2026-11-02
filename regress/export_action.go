@@ -79,20 +79,45 @@ func (r byteStreamActionReader) ReadBlob(ctx context.Context, instance string, d
 
 // ExportActionBundle connects to the original CAS and reconstructs only the
 // immutable Action.input_root_digest tree. It never reads an attempt directory.
-func ExportActionBundle(ctx context.Context, ledger io.Reader, executionID, casEndpoint, destination string, metadata Bundle) error {
+func ExportActionBundle(
+	ctx context.Context,
+	ledger io.Reader,
+	executionID,
+	casEndpoint,
+	destination string,
+	metadata Bundle,
+) error {
 	endpoint := strings.TrimPrefix(casEndpoint, "grpc://")
 	if endpoint == "" || strings.Contains(endpoint, "://") {
 		return fmt.Errorf("--cas must be a host:port or grpc:// endpoint")
 	}
-	conn, err := grpc.NewClient(endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20)))
+	conn, err := grpc.NewClient(
+		endpoint,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20)),
+	)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	return ExportActionBundleFromCAS(ctx, ledger, executionID, destination, metadata, byteStreamActionReader{client: bs.NewByteStreamClient(conn)})
+	return ExportActionBundleFromCAS(
+		ctx,
+		ledger,
+		executionID,
+		destination,
+		metadata,
+		byteStreamActionReader{client: bs.NewByteStreamClient(conn)},
+	)
 }
 
-func ExportActionBundleFromCAS(ctx context.Context, reader io.Reader, executionID, destination string, metadata Bundle, cas ActionBlobReader) error {
+func ExportActionBundleFromCAS(
+	ctx context.Context,
+	reader io.Reader,
+	executionID,
+	destination string,
+	metadata Bundle,
+	cas ActionBlobReader,
+) error {
 	var ledger struct {
 		SchemaVersion int `json:"schema_version"`
 		Executions    []struct {
@@ -215,7 +240,13 @@ func ExportActionBundleFromCAS(ctx context.Context, reader io.Reader, executionI
 		if worker != nil {
 			return fmt.Errorf("duplicate winning attempt")
 		}
-		worker = map[string]any{"worker_id": a.WorkerID, "attempt_id": a.ID, "epoch": a.Epoch, "platform": a.WorkerPlatform, "device_verified": a.DeviceVerified}
+		worker = map[string]any{
+			"worker_id":       a.WorkerID,
+			"attempt_id":      a.ID,
+			"epoch":           a.Epoch,
+			"platform":        a.WorkerPlatform,
+			"device_verified": a.DeviceVerified,
+		}
 		if a.DeviceSnapshot != "" && a.DeviceSnapshot != "{}" {
 			if err := json.Unmarshal([]byte(a.DeviceSnapshot), &gpu); err != nil {
 				return fmt.Errorf("invalid GPU snapshot: %w", err)
@@ -274,7 +305,16 @@ func ExportActionBundleFromCAS(ctx context.Context, reader io.Reader, executionI
 			break
 		}
 	}
-	source := &ActionBundleSource{ExecutionID: e.ID, AttemptID: e.Winner, InstanceName: e.InstanceName, ActionDigest: e.ActionDigest, CommandDigest: bundleDigest(action.CommandDigest), InputRootDigest: bundleDigest(action.InputRootDigest), Action: rawAction, Command: rawCommand}
+	source := &ActionBundleSource{
+		ExecutionID:     e.ID,
+		AttemptID:       e.Winner,
+		InstanceName:    e.InstanceName,
+		ActionDigest:    e.ActionDigest,
+		CommandDigest:   bundleDigest(action.CommandDigest),
+		InputRootDigest: bundleDigest(action.InputRootDigest),
+		Action:          rawAction,
+		Command:         rawCommand,
+	}
 	root, err := os.MkdirTemp("", "remex-action-inputs-")
 	if err != nil {
 		return err
@@ -324,7 +364,11 @@ func ExportActionBundleFromCAS(ctx context.Context, reader io.Reader, executionI
 			if file.IsExecutable {
 				mode = 0755
 			}
-			if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(relative), file.Name), data, mode); err != nil {
+			if err := os.WriteFile(
+				filepath.Join(root, filepath.FromSlash(relative), file.Name),
+				data,
+				mode,
+			); err != nil {
 				return err
 			}
 		}
@@ -343,7 +387,10 @@ func ExportActionBundleFromCAS(ctx context.Context, reader io.Reader, executionI
 			if link.Target == "" || path.IsAbs(link.Target) || strings.ContainsAny(link.Target, "\\\x00\n\r") {
 				return fmt.Errorf("unsafe input symlink %s", link.Name)
 			}
-			if err := os.Symlink(link.Target, filepath.Join(root, filepath.FromSlash(relative), link.Name)); err != nil {
+			if err := os.Symlink(
+				link.Target,
+				filepath.Join(root, filepath.FromSlash(relative), link.Name),
+			); err != nil {
 				return err
 			}
 		}

@@ -22,7 +22,11 @@ func main() {
 func run() error {
 	cacheListen := flag.String("cache-listen", "127.0.0.1:19093", "local cache proxy address (empty disables)")
 	cacheTarget := flag.String("cache-target", "127.0.0.1:19092", "original CAS/AC address")
-	workerListen := flag.String("worker-listen", "127.0.0.1:18981", "local worker protocol proxy address (empty disables)")
+	workerListen := flag.String(
+		"worker-listen",
+		"127.0.0.1:18981",
+		"local worker protocol proxy address (empty disables)",
+	)
 	workerTarget := flag.String("worker-target", "127.0.0.1:18980", "original worker service address")
 	output := flag.String("out", "", "new raw JSONL capture file")
 	cgroupRoot := flag.String("cgroup-root", "", "allowed delegated cgroup root for local observer")
@@ -37,7 +41,10 @@ func run() error {
 	recorder.LedgerURL = *ledgerURL
 	errors := make(chan error, 2)
 	var servers []*grpc.Server
-	for _, endpoint := range []struct{ name, listen, target string }{{"cache", *cacheListen, *cacheTarget}, {"worker", *workerListen, *workerTarget}} {
+	for _, endpoint := range []struct{ name, listen, target string }{
+		{"cache", *cacheListen, *cacheTarget},
+		{"worker", *workerListen, *workerTarget},
+	} {
 		if endpoint.listen == "" {
 			continue
 		}

@@ -42,14 +42,27 @@ func TestIsolatedCacheUploadAndDiskFull(t *testing.T) {
 		actual := append([]byte(nil), intended...)
 		actual[0] = 'X'
 		sum := sha256.Sum256(intended)
-		result, err := cas.BatchUpdateBlobs(ctx, &re.BatchUpdateBlobsRequest{Requests: []*re.BatchUpdateBlobsRequest_Request{{Digest: &re.Digest{Hash: fmt.Sprintf("%x", sum), SizeBytes: int64(len(actual))}, Data: actual}}, DigestFunction: re.DigestFunction_SHA256})
+		result, err := cas.BatchUpdateBlobs(
+			ctx,
+			&re.BatchUpdateBlobsRequest{
+				Requests: []*re.BatchUpdateBlobsRequest_Request{
+					{Digest: &re.Digest{Hash: fmt.Sprintf("%x", sum), SizeBytes: int64(len(actual))}, Data: actual},
+				},
+				DigestFunction: re.DigestFunction_SHA256,
+			},
+		)
 		if err != nil {
 			t.Fatalf("batch mismatch must be an observed per-blob validation rejection: %v", err)
 		}
 		if len(result.Responses) != 1 || result.Responses[0].GetStatus().GetCode() == 0 {
 			t.Fatalf("original cache accepted mismatching bytes: %v", result)
 		}
-		missing, err := cas.FindMissingBlobs(ctx, &re.FindMissingBlobsRequest{BlobDigests: []*re.Digest{{Hash: fmt.Sprintf("%x", sum), SizeBytes: int64(len(actual))}}})
+		missing, err := cas.FindMissingBlobs(
+			ctx,
+			&re.FindMissingBlobsRequest{
+				BlobDigests: []*re.Digest{{Hash: fmt.Sprintf("%x", sum), SizeBytes: int64(len(actual))}},
+			},
+		)
 		if err != nil || len(missing.GetMissingBlobDigests()) != 1 {
 			t.Fatalf("bad BatchUpdate data became visible: %v %v", missing, err)
 		}
@@ -65,15 +78,25 @@ func TestIsolatedCacheUploadAndDiskFull(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		resource := fmt.Sprintf("fault/uploads/mismatch-%d/blobs/%s/%d", time.Now().UnixNano(), digest.Hash, digest.SizeBytes)
+		resource := fmt.Sprintf(
+			"fault/uploads/mismatch-%d/blobs/%s/%d",
+			time.Now().UnixNano(),
+			digest.Hash,
+			digest.SizeBytes,
+		)
 		if err := stream.Send(&bs.WriteRequest{ResourceName: resource, Data: actual, FinishWrite: true}); err != nil {
 			t.Fatal(err)
 		}
 		response, err := stream.CloseAndRecv()
-		if status.Code(err) != codes.Internal && status.Code(err) != codes.InvalidArgument && status.Code(err) != codes.DataLoss {
+		if status.Code(err) != codes.Internal &&
+			status.Code(err) != codes.InvalidArgument &&
+			status.Code(err) != codes.DataLoss {
 			t.Fatalf("expected digest rejection, got %v %v", response, err)
 		}
-		missing, findErr := cas.FindMissingBlobs(ctx, &re.FindMissingBlobsRequest{InstanceName: "fault", BlobDigests: []*re.Digest{digest}})
+		missing, findErr := cas.FindMissingBlobs(
+			ctx,
+			&re.FindMissingBlobsRequest{InstanceName: "fault", BlobDigests: []*re.Digest{digest}},
+		)
 		if findErr != nil || len(missing.GetMissingBlobDigests()) != 1 {
 			t.Fatalf("bad ByteStream data became visible: %v %v", missing, findErr)
 		}
@@ -84,13 +107,23 @@ func TestIsolatedCacheUploadAndDiskFull(t *testing.T) {
 		sum := sha256.Sum256([]byte(fmt.Sprintf("same-key-two-instances-%d", time.Now().UnixNano())))
 		key := &re.Digest{Hash: fmt.Sprintf("%x", sum), SizeBytes: 7}
 		for _, instance := range []string{"fault-tenant-a", "fault-tenant-b"} {
-			_, err := ac.UpdateActionResult(ctx, &re.UpdateActionResultRequest{InstanceName: instance, ActionDigest: key, ActionResult: &re.ActionResult{StdoutRaw: []byte(instance)}})
+			_, err := ac.UpdateActionResult(
+				ctx,
+				&re.UpdateActionResultRequest{
+					InstanceName: instance,
+					ActionDigest: key,
+					ActionResult: &re.ActionResult{StdoutRaw: []byte(instance)},
+				},
+			)
 			if err != nil {
 				t.Fatal(err)
 			}
 		}
 		for _, instance := range []string{"fault-tenant-a", "fault-tenant-b"} {
-			result, err := ac.GetActionResult(ctx, &re.GetActionResultRequest{InstanceName: instance, ActionDigest: key, InlineStdout: true})
+			result, err := ac.GetActionResult(
+				ctx,
+				&re.GetActionResultRequest{InstanceName: instance, ActionDigest: key, InlineStdout: true},
+			)
 			if err != nil || string(result.GetStdoutRaw()) != instance {
 				t.Fatalf("cross-instance AC result: instance=%s result=%v err=%v", instance, result, err)
 			}
@@ -115,7 +148,12 @@ func TestIsolatedCacheUploadAndDiskFull(t *testing.T) {
 			if end > len(data) {
 				end = len(data)
 			}
-			if sendErr = stream.Send(&bs.WriteRequest{ResourceName: resource, WriteOffset: int64(offset), Data: data[offset:end], FinishWrite: end == len(data)}); sendErr != nil {
+			if sendErr = stream.Send(&bs.WriteRequest{
+				ResourceName: resource,
+				WriteOffset:  int64(offset),
+				Data:         data[offset:end],
+				FinishWrite:  end == len(data),
+			}); sendErr != nil {
 				break
 			}
 		}
@@ -123,10 +161,20 @@ func TestIsolatedCacheUploadAndDiskFull(t *testing.T) {
 		if err == nil {
 			t.Fatalf("32 MiB tmpfs unexpectedly accepted 40 MiB: %+v send=%v", response, sendErr)
 		}
-		if status.Code(err) != codes.Internal || !strings.Contains(strings.ToLower(err.Error()), "no space left on device") {
+		if status.Code(err) != codes.Internal || !strings.Contains(
+			strings.ToLower(err.Error()),
+			"no space left on device",
+		) {
 			t.Fatalf("upload failed for a reason other than observed ENOSPC: %v", err)
 		}
-		missing, findErr := cas.FindMissingBlobs(ctx, &re.FindMissingBlobsRequest{InstanceName: "fault", BlobDigests: []*re.Digest{digest}, DigestFunction: re.DigestFunction_SHA256})
+		missing, findErr := cas.FindMissingBlobs(
+			ctx,
+			&re.FindMissingBlobsRequest{
+				InstanceName:   "fault",
+				BlobDigests:    []*re.Digest{digest},
+				DigestFunction: re.DigestFunction_SHA256,
+			},
+		)
 		if findErr != nil || len(missing.GetMissingBlobDigests()) != 1 {
 			t.Fatalf("failed write left a visible blob: %v %v", missing, findErr)
 		}

@@ -183,7 +183,21 @@ func run(file, contains, endpoint string) error {
 		for _, size := range files {
 			uniqueBytes += size
 		}
-		result := map[string]any{"execution": e.ID, "action_digest": e.Digest, "input_root_digest": action.InputRootDigest, "command_arguments": command.Arguments, "file_paths": pathFiles, "directory_paths": pathDirs, "symlink_paths": links, "logical_file_bytes": logicalBytes, "unique_file_digests": len(files), "unique_file_bytes": uniqueBytes, "unique_directory_digests": len(directories), "verified_directory_bytes": directoryBytes, "scope": "Action, Command, Directory bytes verified against CAS SHA256; file sizes are declared Merkle references, not fresh file-content or availability proof."}
+		result := map[string]any{
+			"execution":                e.ID,
+			"action_digest":            e.Digest,
+			"input_root_digest":        action.InputRootDigest,
+			"command_arguments":        command.Arguments,
+			"file_paths":               pathFiles,
+			"directory_paths":          pathDirs,
+			"symlink_paths":            links,
+			"logical_file_bytes":       logicalBytes,
+			"unique_file_digests":      len(files),
+			"unique_file_bytes":        uniqueBytes,
+			"unique_directory_digests": len(directories),
+			"verified_directory_bytes": directoryBytes,
+			"scope":                    "Action, Command, Directory bytes verified against CAS SHA256; file sizes are declared Merkle references, not fresh file-content or availability proof.",
+		}
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(result)

@@ -15,7 +15,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (s *Scheduler) rejectLocked(ctx context.Context, r *w.CompleteRequest, decision w.CompleteResponse_Decision, message string) (*w.CompleteResponse, error) {
+func (s *Scheduler) rejectLocked(
+	ctx context.Context,
+	r *w.CompleteRequest,
+	decision w.CompleteResponse_Decision,
+	message string,
+) (*w.CompleteResponse, error) {
 	t := s.ledger.begin()
 	a := t.attempt(r.AttemptId)
 	var e *Execution
@@ -26,7 +31,13 @@ func (s *Scheduler) rejectLocked(ctx context.Context, r *w.CompleteRequest, deci
 	if decision == w.CompleteResponse_FENCED {
 		kind = "stale_complete_rejected"
 	}
-	t.event(s.cfg.Now(), kind, e, a, map[string]any{"submitted_epoch": r.Epoch, "worker_id": r.WorkerId, "reason": message})
+	t.event(
+		s.cfg.Now(),
+		kind,
+		e,
+		a,
+		map[string]any{"submitted_epoch": r.Epoch, "worker_id": r.WorkerId, "reason": message},
+	)
 	if err := s.commit(ctx, t); err != nil {
 		return nil, err
 	}
@@ -55,7 +66,12 @@ func (s *Scheduler) Complete(ctx context.Context, r *w.CompleteRequest) (_ *w.Co
 	}
 	instance := e.InstanceName
 	if !r.CgroupEmpty || r.AttemptDir == "" {
-		resp, err := s.rejectLocked(ctx, r, w.CompleteResponse_REJECTED, "cgroup must be empty and attempt_dir must be recorded")
+		resp, err := s.rejectLocked(
+			ctx,
+			r,
+			w.CompleteResponse_REJECTED,
+			"cgroup must be empty and attempt_dir must be recorded",
+		)
 		s.release(&seen)
 		return resp, err
 	}
@@ -70,7 +86,12 @@ func (s *Scheduler) Complete(ctx context.Context, r *w.CompleteRequest) (_ *w.Co
 		return resp, err
 	}
 	if r.StatusCode == 0 && a.CommandStartedAt == nil {
-		resp, err := s.rejectLocked(ctx, r, w.CompleteResponse_REJECTED, "successful result requires command_started evidence")
+		resp, err := s.rejectLocked(
+			ctx,
+			r,
+			w.CompleteResponse_REJECTED,
+			"successful result requires command_started evidence",
+		)
 		s.release(&seen)
 		return resp, err
 	}
@@ -157,7 +178,10 @@ func (s *Scheduler) Complete(ctx context.Context, r *w.CompleteRequest) (_ *w.Co
 		a.ResultDigests = append(a.ResultDigests, digestModel(d))
 	}
 	t.event(now, "cas_verified", e, a, map[string]any{"result_digests": a.ResultDigests})
-	infra := r.StatusCode == int32(codes.Unavailable) || r.StatusCode == int32(codes.Internal) || r.StatusCode == int32(codes.DataLoss) || r.StatusCode == int32(codes.ResourceExhausted)
+	infra := r.StatusCode == int32(codes.Unavailable) ||
+		r.StatusCode == int32(codes.Internal) ||
+		r.StatusCode == int32(codes.DataLoss) ||
+		r.StatusCode == int32(codes.ResourceExhausted)
 	if infra && int(e.CurrentEpoch) < s.cfg.MaxAttempts {
 		a.Phase = "InfraFailed"
 		t.event(now, "attempt_infra_failed", e, a, map[string]any{"status_code": r.StatusCode})
@@ -170,7 +194,13 @@ func (s *Scheduler) Complete(ctx context.Context, r *w.CompleteRequest) (_ *w.Co
 		e.Result = r.ActionResult
 		e.StatusCode = r.StatusCode
 		e.StatusMessage = r.StatusMessage
-		t.event(now, "attempt_committed", e, a, map[string]any{"status_code": r.StatusCode, "exit_code": result.ExitCode})
+		t.event(
+			now,
+			"attempt_committed",
+			e,
+			a,
+			map[string]any{"status_code": r.StatusCode, "exit_code": result.ExitCode},
+		)
 	}
 	if err := s.commit(ctx, t); err != nil {
 		return nil, err
@@ -255,7 +285,9 @@ func (s *Scheduler) publish(ctx context.Context, id string, verified bool) (err 
 	defer s.settle(ctx, &recorded, &err)
 	s.mu.Lock()
 	defer s.release(&recorded)
-	if current := s.ledger.execution(id); current == nil || current.State != "Committed" || current.WinnerAttemptID != winner {
+	if current := s.ledger.execution(id); current == nil ||
+		current.State != "Committed" ||
+		current.WinnerAttemptID != winner {
 		return nil
 	}
 	t := s.ledger.begin()
@@ -268,7 +300,12 @@ func (s *Scheduler) publish(ctx context.Context, id string, verified bool) (err 
 }
 
 func cacheableResult(e *Execution, a *Attempt) bool {
-	return !e.DoNotCache && !e.HardwareTest && e.StatusCode == 0 && a.ExitCode == 0 && a.OOMKill == 0 && !a.CommandTimedOut
+	return !e.DoNotCache &&
+		!e.HardwareTest &&
+		e.StatusCode == 0 &&
+		a.ExitCode == 0 &&
+		a.OOMKill == 0 &&
+		!a.CommandTimedOut
 }
 
 // Correlation identifies the durable event prefix before this real RPC; it is

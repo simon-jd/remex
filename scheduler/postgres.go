@@ -235,14 +235,24 @@ func (p *PostgresStore) Save(caller context.Context, c *Change) error {
 		if err != nil {
 			return err
 		}
-		batch.Queue("INSERT INTO executions(id,data) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET data=excluded.data", e.ID, raw)
+		batch.Queue(
+			"INSERT INTO executions(id,data) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+			e.ID,
+			raw,
+		)
 	}
 	for _, a := range c.Attempts {
 		raw, err := json.Marshal(a)
 		if err != nil {
 			return err
 		}
-		batch.Queue("INSERT INTO attempts(id,execution_id,epoch,data) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO UPDATE SET data=excluded.data", a.ID, a.ExecutionID, a.Epoch, raw)
+		batch.Queue(
+			"INSERT INTO attempts(id,execution_id,epoch,data) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+			a.ID,
+			a.ExecutionID,
+			a.Epoch,
+			raw,
+		)
 	}
 	for _, ev := range c.Events {
 		raw, err := json.Marshal(ev)

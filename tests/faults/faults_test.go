@@ -145,7 +145,10 @@ func TestCancellationAndExpiryDuringRemoteCASVerificationFenceCompletion(t *test
 			}
 			if fault == "cancel" {
 				recorder := httptest.NewRecorder()
-				h.Scheduler.AdminHandler().ServeHTTP(recorder, httptest.NewRequest("POST", "/cancel?id="+lease.ExecutionId, nil))
+				h.Scheduler.AdminHandler().ServeHTTP(
+					recorder,
+					httptest.NewRequest("POST", "/cancel?id="+lease.ExecutionId, nil),
+				)
 				if recorder.Code != 204 {
 					t.Fatalf("cancel HTTP status = %d", recorder.Code)
 				}
@@ -215,7 +218,8 @@ func TestConcurrentDuplicateCompletionPublishesOneWinner(t *testing.T) {
 	close(release)
 	for range duplicates {
 		r := <-results
-		if r.err != nil || (r.result.Decision != w.CompleteResponse_ACCEPTED && r.result.Decision != w.CompleteResponse_FENCED) {
+		if r.err != nil ||
+			(r.result.Decision != w.CompleteResponse_ACCEPTED && r.result.Decision != w.CompleteResponse_FENCED) {
 			t.Fatalf("duplicate response = %v, %v", r.result, r.err)
 		}
 	}

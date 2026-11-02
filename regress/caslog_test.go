@@ -52,8 +52,16 @@ func TestRemoteBEPLogEvidence(t *testing.T) {
 			go server.Serve(listener)
 			defer server.Stop()
 			defer listener.Close()
-			uri, _ := url.Parse(fmt.Sprintf("bytestream://127.0.0.1:1/instance/blobs/%x/%d", sha256.Sum256(good), len(good)))
-			data, err := readRemoteTestLog(context.Background(), uri, grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }))
+			uri, _ := url.Parse(fmt.Sprintf(
+				"bytestream://127.0.0.1:1/instance/blobs/%x/%d",
+				sha256.Sum256(good),
+				len(good),
+			))
+			data, err := readRemoteTestLog(
+				context.Background(),
+				uri,
+				grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }),
+			)
 			if tc.ok && (err != nil || string(data) != string(good)) {
 				t.Fatalf("lost valid log %q: %v", data, err)
 			}

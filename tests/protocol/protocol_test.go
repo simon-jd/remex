@@ -14,7 +14,10 @@ import (
 
 func TestDisconnectedExecuteCanReconnectThroughWaitExecution(t *testing.T) {
 	h := testkit.New(t, nil)
-	capabilities, err := h.Capabilities.GetCapabilities(h.Ctx, &re.GetCapabilitiesRequest{InstanceName: testkit.Instance})
+	capabilities, err := h.Capabilities.GetCapabilities(
+		h.Ctx,
+		&re.GetCapabilitiesRequest{InstanceName: testkit.Instance},
+	)
 	if err != nil || !capabilities.GetExecutionCapabilities().GetExecEnabled() {
 		t.Fatalf("capabilities = %v, %v", capabilities, err)
 	}
@@ -40,7 +43,10 @@ func TestDisconnectedExecuteCanReconnectThroughWaitExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 	var response re.ExecuteResponse
-	if !completed.Done || completed.GetResponse().UnmarshalTo(&response) != nil || response.GetStatus().GetCode() != 0 || response.GetResult().GetStdoutDigest().GetHash() != output.Hash {
+	if !completed.Done ||
+		completed.GetResponse().UnmarshalTo(&response) != nil ||
+		response.GetStatus().GetCode() != 0 ||
+		response.GetResult().GetStdoutDigest().GetHash() != output.Hash {
 		t.Fatalf("completed operation = %v", completed)
 	}
 	if _, err := wait.Recv(); err != io.EOF {
