@@ -28,6 +28,84 @@ jobs:
       - run: make go-vet
       - run: make go-test
 
+  # The tests that skip without real services: the scheduler against
+  # PostgreSQL and bazel-remote, and the C++ worker in a delegated cgroup v2
+  # subtree against both. The small cache is a 32 MiB tmpfs for the
+  # disk-full test. GPU (NVML) tests still skip: the runner has no GPU.
+  integration:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: remex
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: remex
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U remex -d remex"
+          --health-interval 2s --health-timeout 5s --health-retries 15
+      bazel-remote:
+        image: buchgr/bazel-remote-cache:v2.6.3
+        env:
+          BAZEL_REMOTE_DIR: /data
+          BAZEL_REMOTE_MAX_SIZE: "4"
+          BAZEL_REMOTE_GRPC_ADDRESS: 0.0.0.0:9092
+          BAZEL_REMOTE_HTTP_ADDRESS: 0.0.0.0:8080
+          BAZEL_REMOTE_ENABLE_AC_KEY_INSTANCE_MANGLING: "true"
+        ports: ["9092:9092"]
+      small-cas:
+        image: buchgr/bazel-remote-cache:v2.6.3
+        env:
+          BAZEL_REMOTE_DIR: /data
+          BAZEL_REMOTE_MAX_SIZE: "1"
+          BAZEL_REMOTE_STORAGE_MODE: uncompressed
+          BAZEL_REMOTE_GRPC_ADDRESS: 0.0.0.0:9092
+          BAZEL_REMOTE_HTTP_ADDRESS: 0.0.0.0:8080
+          BAZEL_REMOTE_ENABLE_AC_KEY_INSTANCE_MANGLING: "true"
+        ports: ["29092:9092"]
+        options: --tmpfs /data:size=32m
+    env:
+      REMEX_TEST_POSTGRES: postgres://remex:ci@127.0.0.1:5432/remex?sslmode=disable
+      REMEX_TEST_CAS: 127.0.0.1:9092
+      REMEX_TEST_ISOLATED_SMALL_CAS: 127.0.0.1:29092
+      REMEX_TEST_WORKER_BINARY: ${{ github.workspace }}/build/worker/remex-worker
+      REMEX_TEST_CGROUP_ROOT: /sys/fs/cgroup/remex-ci/tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install the worker's build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake g++ \
+            libgrpc++-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc \
+            libssl-dev libabsl-dev
+      - run: make worker-build
+      - name: Wait for both caches
+        run: |
+          for port in 9092 29092; do
+            timeout 60 bash -c "until (echo > /dev/tcp/127.0.0.1/$port) 2>/dev/null; do sleep 1; done"
+          done
+      # The worker moves each action's processes into a child of the cgroup
+      # root, which needs write access to their common ancestor: the tests
+      # run inside remex-ci/runner and the worker's attempts go under
+      # remex-ci/tests, both owned by the runner user.
+      - name: Delegate a cgroup v2 subtree
+        run: |
+          sudo mkdir -p /sys/fs/cgroup/remex-ci/runner /sys/fs/cgroup/remex-ci/tests
+          echo "+cpu +memory +pids" | sudo tee /sys/fs/cgroup/remex-ci/cgroup.subtree_control
+          echo "+cpu +memory +pids" | sudo tee /sys/fs/cgroup/remex-ci/tests/cgroup.subtree_control
+          sudo chown -R "$(id -u):$(id -g)" /sys/fs/cgroup/remex-ci
+      - name: Scheduler, worker and fault integration tests
+        run: |
+          echo $$ | sudo tee /sys/fs/cgroup/remex-ci/runner/cgroup.procs
+          go test -race -count=1 -v ./scheduler/... ./tests/faults/... 2>&1 | tee integration.log
+          ctest --test-dir build/worker --output-on-failure
+          # A skip here means a service was missing, not a pass.
+          ! grep -E -- "--- SKIP: Test(Real|Postgres|BazelRemote|IsolatedCache)" integration.log
+
   worker:
     runs-on: ubuntu-24.04
     steps:

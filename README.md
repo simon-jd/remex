@@ -215,6 +215,10 @@ scripts/bazel-sample.sh cpp-history   # in another terminal: a remote Bazel buil
   libabsl-dev`. The fault tests also need `psql`.
 - **CI** (`.github/workflows/ci.yml`) runs `make go-vet` and `make go-test`
   against a PostgreSQL service, `make worker-test`, and `make python-test`.
+  An `integration` job adds bazel-remote service containers and a delegated
+  cgroup subtree so that the scheduler, worker and fault tests that skip
+  without them run, and fails if any of them skips. It has not been run
+  yet; only the GPU (NVML) tests are left to a host with a GPU.
 - **GPU workers** (`REMEX_GPU=1`) also need an NVIDIA driver with NVML.
 - **Fault tests.** `tests/faults` holds fault-injection tests against real
   processes:
