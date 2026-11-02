@@ -64,7 +64,8 @@ jobs:
           BAZEL_REMOTE_HTTP_ADDRESS: 0.0.0.0:8080
           BAZEL_REMOTE_ENABLE_AC_KEY_INSTANCE_MANGLING: "true"
         ports: ["29092:9092"]
-        options: --tmpfs /data:size=32m
+        # bazel-remote does not run as root, so the tmpfs must be writable to all.
+        options: --tmpfs /data:size=32m,mode=1777
     env:
       REMEX_TEST_POSTGRES: postgres://remex:ci@127.0.0.1:5432/remex?sslmode=disable
       REMEX_TEST_CAS: 127.0.0.1:9092

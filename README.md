@@ -217,8 +217,9 @@ scripts/bazel-sample.sh cpp-history   # in another terminal: a remote Bazel buil
   against a PostgreSQL service, `make worker-test`, and `make python-test`.
   An `integration` job adds bazel-remote service containers and a delegated
   cgroup subtree so that the scheduler, worker and fault tests that skip
-  without them run, and fails if any of them skips. It has not been run
-  yet; only the GPU (NVML) tests are left to a host with a GPU.
+  without them run, and fails if any of them skips. It has not run on
+  GitHub; on the development host the same tests pass against containers
+  with the same settings. Only the GPU (NVML) tests need a GPU host.
 - **GPU workers** (`REMEX_GPU=1`) also need an NVIDIA driver with NVML.
 - **Fault tests.** `tests/faults` holds fault-injection tests against real
   processes:
