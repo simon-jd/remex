@@ -1,0 +1,6 @@
+# C++ and CUDA formatting for worker/ and samples/ (`make format`);
+# worker/third_party is vendored and left alone. Include order is kept as
+# written, so formatting never changes which declarations a file sees.
+BasedOnStyle: Google
+ColumnLimit: 100
+SortIncludes: Never

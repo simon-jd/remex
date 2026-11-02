@@ -15,7 +15,9 @@ namespace remex {
 namespace fs = std::filesystem;
 namespace re = build::bazel::remote::execution::v2;
 using Properties = std::map<std::string, std::string>;
-struct Error : std::runtime_error { using std::runtime_error::runtime_error; };
+struct Error : std::runtime_error {
+  using std::runtime_error::runtime_error;
+};
 std::string ReadFile(const fs::path&, std::uint64_t limit = 1ULL << 30);
 void WriteFile(const fs::path&, std::string_view);
 re::Digest Hash(std::string_view data);
@@ -41,6 +43,7 @@ class CachedBlobs : public BlobStore {
   CachedBlobs(BlobStore& remote, fs::path cache);
   std::string Get(const re::Digest&) override;
   void Put(const re::Digest&, std::string_view) override;
+
  private:
   BlobStore& remote_;
   fs::path cache_;
@@ -51,8 +54,8 @@ re::ActionResult CollectOutputs(BlobStore&, const re::Command&, const fs::path&,
 struct ResourceStats {
   std::string cgroup_path;
   std::int64_t oom_kill = 0;
-  std::map<std::string,std::uint64_t> cpu;
-  std::map<std::string,std::uint64_t> memory;
+  std::map<std::string, std::uint64_t> cpu;
+  std::map<std::string, std::uint64_t> memory;
   std::string JSON() const;
 };
 class Cgroup {
@@ -65,6 +68,7 @@ class Cgroup {
   ResourceStats KillAndWait(std::chrono::milliseconds timeout = std::chrono::seconds(10));
   const fs::path& path() const { return path_; }
   bool empty() const { return empty_; }
+
  private:
   fs::path path_;
   bool empty_ = false;
@@ -86,4 +90,4 @@ struct DeviceSnapshot {
 };
 DeviceSnapshot ProbeDevices(const Properties& declared);
 void MatchPlatform(const re::Platform&, const Properties& actual);
-}
+}  // namespace remex

@@ -17,7 +17,8 @@ bool RetryableControlStatus(grpc::StatusCode code) {
 }
 void CheckControlRpc(const grpc::Status& status, std::string_view operation) {
   if (status.ok()) return;
-  const auto message = std::string(operation) + ": " + std::to_string(status.error_code()) + " " + status.error_message();
+  const auto message = std::string(operation) + ": " + std::to_string(status.error_code()) + " " +
+                       status.error_message();
   if (RetryableControlStatus(status.error_code())) throw RetryableError(message);
   throw Error(message);
 }
@@ -27,7 +28,8 @@ void RunPollingLoop(bool once, const PollingHooks& hooks) {
   // A failing device probe backs off to 5 s. The scheduler is retried at
   // least every second: a restarted scheduler should see its workers again
   // within a lease, not after a backoff that grew while it was down.
-  const auto maximum = std::chrono::milliseconds(5000), scheduler_maximum = std::chrono::milliseconds(1000);
+  const auto maximum = std::chrono::milliseconds(5000),
+             scheduler_maximum = std::chrono::milliseconds(1000);
   while (!hooks.stopped()) {
     bool probing = true;
     try {
@@ -39,7 +41,7 @@ void RunPollingLoop(bool once, const PollingHooks& hooks) {
       if (!registered) {
         hooks.register_worker(device);
         registered = just_registered = true;
-        continue; // Probe again immediately before the first Lease RPC.
+        continue;  // Probe again immediately before the first Lease RPC.
       }
       const auto outcome = hooks.lease(device);
       if (outcome == PollOutcome::RegistrationRequired) {
@@ -51,7 +53,8 @@ void RunPollingLoop(bool once, const PollingHooks& hooks) {
           hooks.log("scheduler requested worker registration");
           continue;
         }
-        hooks.log("scheduler requested registration again; retrying in " + std::to_string(backoff.count()) + " ms");
+        hooks.log("scheduler requested registration again; retrying in " +
+                  std::to_string(backoff.count()) + " ms");
         hooks.wait(backoff);
         backoff = std::min(backoff * 2, scheduler_maximum);
         continue;
@@ -64,10 +67,11 @@ void RunPollingLoop(bool once, const PollingHooks& hooks) {
       if (once) throw;
       const auto limit = probing ? maximum : scheduler_maximum;
       backoff = std::min(backoff, limit);
-      hooks.log(std::string(error.what()) + "; lease acquisition paused, retrying in " + std::to_string(backoff.count()) + " ms");
+      hooks.log(std::string(error.what()) + "; lease acquisition paused, retrying in " +
+                std::to_string(backoff.count()) + " ms");
       hooks.wait(backoff);
       backoff = std::min(backoff * 2, limit);
     }
   }
 }
-}
+}  // namespace remex

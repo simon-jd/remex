@@ -5,7 +5,7 @@ export GOCACHE ?= $(ROOT)/.cache/go-build
 export GOMODCACHE ?= $(ROOT)/.cache/go-mod
 export GOFLAGS ?= -buildvcs=false
 
-.PHONY: all go-build worker-build worker-bazel test go-vet go-test worker-test python-test deps-up deps-down history
+.PHONY: all go-build worker-build worker-bazel test go-vet go-test worker-test python-test deps-up deps-down history format
 all: go-build worker-build
 go-build:
 	mkdir -p build/bin
@@ -42,3 +42,6 @@ deps-down:
 	docker compose -f deploy/compose.yaml down
 history:
 	python3 scripts/generate-history.py --output build/planted-history
+format:
+	gofmt -w $$(git ls-files '*.go')
+	clang-format -i $$(git ls-files '*.cc' '*.h' '*.cu' | grep -v '^worker/third_party/')

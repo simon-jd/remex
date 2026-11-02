@@ -7,7 +7,14 @@
 // The history generator changes only this switch at revision 72.
 constexpr bool kPlantedRace = false;
 constexpr unsigned kThreads = 64;
-#define CUDA_CHECK(call) do { cudaError_t e = (call); if (e != cudaSuccess) { std::fprintf(stderr, "CUDA infrastructure: %s\n", cudaGetErrorString(e)); return 125; } } while (0)
+#define CUDA_CHECK(call)                                                        \
+  do {                                                                          \
+    cudaError_t e = (call);                                                     \
+    if (e != cudaSuccess) {                                                     \
+      std::fprintf(stderr, "CUDA infrastructure: %s\n", cudaGetErrorString(e)); \
+      return 125;                                                               \
+    }                                                                           \
+  } while (0)
 
 static std::uint64_t mix_seed(std::uint64_t x) {
   x += 0x9e3779b97f4a7c15ULL;
@@ -34,7 +41,8 @@ int main() {
   errno = 0;
   const std::uint64_t seed = std::strtoull(text, &end, 10);
   if (errno || end == text || *end || *text == '-') {
-    std::fprintf(stderr, "CUDA infrastructure: invalid REMEX_SEED\n"); return 125;
+    std::fprintf(stderr, "CUDA infrastructure: invalid REMEX_SEED\n");
+    return 125;
   }
   const bool gate = mix_seed(seed) % 4 == 0;
   unsigned* device = nullptr;
@@ -47,9 +55,11 @@ int main() {
   CUDA_CHECK(cudaMemcpy(&observed, device, sizeof(unsigned), cudaMemcpyDeviceToHost));
   CUDA_CHECK(cudaFree(device));
   std::printf("CUDA race seed=%llu gate=%d planted=%d counter=%u expected=%u\n",
-      static_cast<unsigned long long>(seed), gate, kPlantedRace, observed, kThreads);
+              static_cast<unsigned long long>(seed), gate, kPlantedRace, observed, kThreads);
   if (observed != kThreads) {
-    std::fprintf(stderr, "REMEX_SIGNATURE: cuda_lost_update\n"); return 1;
+    std::fprintf(stderr, "REMEX_SIGNATURE: cuda_lost_update\n");
+    return 1;
   }
-  std::puts("CUDA counter: PASS"); return 0;
+  std::puts("CUDA counter: PASS");
+  return 0;
 }

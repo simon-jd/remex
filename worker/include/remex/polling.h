@@ -5,7 +5,9 @@
 namespace remex {
 // Only transient device/control-plane failures are retried. Invalid configuration
 // and authentication/authorization failures remain explicit errors.
-struct RetryableError : Error { using Error::Error; };
+struct RetryableError : Error {
+  using Error::Error;
+};
 enum class PollOutcome { Idle, AttemptFinished, RegistrationRequired };
 struct PollingHooks {
   std::function<DeviceSnapshot()> probe;
@@ -20,4 +22,4 @@ void CheckControlRpc(const grpc::Status&, std::string_view operation);
 // This is the production registration/lease loop. Injected hooks let tests
 // exercise failures without claiming fabricated NVML snapshots are real devices.
 void RunPollingLoop(bool once, const PollingHooks&);
-}
+}  // namespace remex

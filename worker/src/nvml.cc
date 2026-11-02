@@ -8,9 +8,17 @@
 
 namespace remex {
 namespace {
-struct Library { void* handle = nullptr; ~Library() { if (handle) dlclose(handle); } };
-template<class T> T Symbol(void* lib, const char* name) {
-  auto* address = dlsym(lib, name); if (!address) throw Error(std::string("NVML symbol missing: ") + name); return reinterpret_cast<T>(address);
+struct Library {
+  void* handle = nullptr;
+  ~Library() {
+    if (handle) dlclose(handle);
+  }
+};
+template <class T>
+T Symbol(void* lib, const char* name) {
+  auto* address = dlsym(lib, name);
+  if (!address) throw Error(std::string("NVML symbol missing: ") + name);
+  return reinterpret_cast<T>(address);
 }
 using Device = void*;
 // NVML is a process service: repeated dlopen/init/shutdown/dlclose cycles in
@@ -45,43 +53,70 @@ struct Nvml {
     initialized = true;
   }
   void Reset() noexcept {
-    if (initialized) { shutdown(); initialized = false; }
+    if (initialized) {
+      shutdown();
+      initialized = false;
+    }
   }
   ~Nvml() { Reset(); }
 };
-}
+}  // namespace
 DeviceSnapshot ProbeDevices(const Properties& declared) {
-  DeviceSnapshot result; result.properties = declared;
-  result.properties["OSFamily"] = "Linux"; result.properties["ISA"] = "x86-64";
+  DeviceSnapshot result;
+  result.properties = declared;
+  result.properties["OSFamily"] = "Linux";
+  result.properties["ISA"] = "x86-64";
   result.properties["cpu.min"] = std::to_string(std::thread::hardware_concurrency());
-  struct sysinfo info{}; if (sysinfo(&info) != 0) throw RetryableError("cannot query host memory");
-  result.properties["mem_gb.min"] = std::to_string(static_cast<double>(info.totalram) * info.mem_unit / (1ULL << 30));
+  struct sysinfo info{};
+  if (sysinfo(&info) != 0) throw RetryableError("cannot query host memory");
+  result.properties["mem_gb.min"] =
+      std::to_string(static_cast<double>(info.totalram) * info.mem_unit / (1ULL << 30));
   // Overrides can only lower CPU/memory advertisements, never inflate physical capacity.
-  for (const auto* key : {"cpu.min", "mem_gb.min"}) if (declared.contains(key)) {
-    std::size_t used=0; const auto configured=std::stod(declared.at(key),&used);
-    if(used != declared.at(key).size() || !std::isfinite(configured) || configured <= 0 || configured > std::stod(result.properties.at(key))) throw Error(std::string("invalid advertised capacity: ") + key);
-    result.properties[key] = declared.at(key);
-  }
+  for (const auto* key : {"cpu.min", "mem_gb.min"})
+    if (declared.contains(key)) {
+      std::size_t used = 0;
+      const auto configured = std::stod(declared.at(key), &used);
+      if (used != declared.at(key).size() || !std::isfinite(configured) || configured <= 0 ||
+          configured > std::stod(result.properties.at(key)))
+        throw Error(std::string("invalid advertised capacity: ") + key);
+      result.properties[key] = declared.at(key);
+    }
   if (!declared.contains("pool") || declared.at("pool") != "gpu") {
-    result.properties.erase("gpu.cc"); result.properties.erase("gpu.driver_major"); result.json = "{}"; return result;
+    result.properties.erase("gpu.cc");
+    result.properties.erase("gpu.driver_major");
+    result.json = "{}";
+    return result;
   }
   static Nvml nvml;
   std::lock_guard lock(nvml.mutex);
   try {
-  nvml.Initialize();
-  unsigned count=0; char driver[96]{};
-  if(nvml.count(&count)!=0 || count==0) throw RetryableError("NVML device enumeration unavailable");
-  if(count!=1) throw Error("GPU worker requires exactly one visible NVML device (MIG/multi-GPU unsupported)");
-  Device device=nullptr; char uuid[96]{}; int major=0,minor=0;
-  if(nvml.device(0,&device)!=0 || nvml.uuid(device,uuid,sizeof(uuid))!=0 || nvml.capability(device,&major,&minor)!=0 || nvml.driver(driver,sizeof(driver))!=0) throw RetryableError("NVML device identity query failed");
-  result.properties["gpu.cc"] = std::to_string(major) + "." + std::to_string(minor);
-  const std::string version(driver); result.properties["gpu.driver_major"] = version.substr(0,version.find('.'));
-  for (const auto* key : {"gpu.cc","gpu.driver_major"}) if(declared.contains(key) && declared.at(key)!=result.properties.at(key)) throw Error(std::string("declared GPU identity differs from NVML: ") + key);
-  result.json = "{\"uuid\":" + JsonEscape(uuid) + ",\"compute_capability\":" + JsonEscape(result.properties.at("gpu.cc")) + ",\"driver_version\":" + JsonEscape(version) + "}";
-  return result;
+    nvml.Initialize();
+    unsigned count = 0;
+    char driver[96]{};
+    if (nvml.count(&count) != 0 || count == 0)
+      throw RetryableError("NVML device enumeration unavailable");
+    if (count != 1)
+      throw Error(
+          "GPU worker requires exactly one visible NVML device (MIG/multi-GPU unsupported)");
+    Device device = nullptr;
+    char uuid[96]{};
+    int major = 0, minor = 0;
+    if (nvml.device(0, &device) != 0 || nvml.uuid(device, uuid, sizeof(uuid)) != 0 ||
+        nvml.capability(device, &major, &minor) != 0 || nvml.driver(driver, sizeof(driver)) != 0)
+      throw RetryableError("NVML device identity query failed");
+    result.properties["gpu.cc"] = std::to_string(major) + "." + std::to_string(minor);
+    const std::string version(driver);
+    result.properties["gpu.driver_major"] = version.substr(0, version.find('.'));
+    for (const auto* key : {"gpu.cc", "gpu.driver_major"})
+      if (declared.contains(key) && declared.at(key) != result.properties.at(key))
+        throw Error(std::string("declared GPU identity differs from NVML: ") + key);
+    result.json = "{\"uuid\":" + JsonEscape(uuid) +
+                  ",\"compute_capability\":" + JsonEscape(result.properties.at("gpu.cc")) +
+                  ",\"driver_version\":" + JsonEscape(version) + "}";
+    return result;
   } catch (const RetryableError&) {
     nvml.Reset();
     throw;
   }
 }
-}
+}  // namespace remex
