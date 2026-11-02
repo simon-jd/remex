@@ -18,7 +18,7 @@ const noWait = ^uint64(0)
 // flight as a single store transaction. A call answers only once the log
 // is durable up to the position it observed, so a client never sees a
 // change that a crash could lose. The first failed write stops the log:
-// memory may then be ahead of the store, so the scheduler fails stop and a
+// memory may then be ahead of the store, so the scheduler fail-stops and a
 // restart reloads the durable prefix.
 type commitLog struct {
 	store  Store
