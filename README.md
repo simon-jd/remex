@@ -1,19 +1,29 @@
-# remex: Bazel remote execution with flaky-regression bisection
+# remex: a study of a Bazel remote-execution scheduler
 
-remex is a Bazel remote-execution service (REAPI v2), plus regression tooling
-built on it. The system has four parts:
+remex is a scheduler for Bazel remote execution (REAPI v2), built to study
+how a scheduler keeps results durable and builds moving when parts of the
+system are slow or crash, plus regression tooling on top of it. It has four
+parts:
 - a Go scheduler with a PostgreSQL ledger;
 - C++20 workers that run actions in cgroups on CPU, GPU (CUDA) and RTL
-  (Verilator) pools; a GPU worker reads its device identity from NVML before
-  it leases and again before it runs;
+  (Verilator) pools; a GPU worker reads its device's identity from NVML
+  before it leases and again before it runs;
 - the unmodified `bazel-remote` as CAS and action cache;
 - a CLI that classifies test failures, selects which hardware tests a change
-  needs, and bisects failures that only happen some of the time.
+  needs, and bisects failures that only happen some of the time and
+  performance regressions.
 
 Two properties matter most. A result is reported only once it is durable,
 and it is written to the action cache only after the scheduler has found
 every output blob in the CAS. And a slow or failing component costs time,
 not lost work.
+
+**What it is compared with.** Every comparison below is against an earlier
+version of this scheduler, against `git bisect`, or against plain local
+Bazel on the same cores. No existing REAPI scheduler (Buildbarn,
+Buildfarm, NativeLink) was run on the same builds, so nothing here says how
+remex compares with one. The earlier scheduler versions that
+`results/` keeps records for are not in this repository's history.
 
 **End-to-end build.** `scripts/benchmark-cpu.py` builds and tests
 `samples/cpp-history` (`//:math_test` and `//:abseil_test`: 90 compile, link
