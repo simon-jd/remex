@@ -677,36 +677,28 @@ func (s *Scheduler) expireLocked(ctx context.Context, now time.Time) error {
 	// Expire in ledger order so event sequences are deterministic.
 	sort.Slice(ids, func(i, j int) bool { return s.ledger.attemptIndex[ids[i]] < s.ledger.attemptIndex[ids[j]] })
 	t := s.ledger.begin()
-	changed := false
-	expired := []string{}
 	for _, id := range ids {
 		a := t.attempt(id)
 		e := t.execution(a.ExecutionID)
-		{
-			changed = true
-			expired = append(expired, a.ID)
-			a.Phase = "Expired"
-			a.Status = "UNAVAILABLE"
-			a.FailureCategory = "infrastructure"
-			t.event(now, "lease_expired", e, a, nil)
-			if int(e.CurrentEpoch) >= s.cfg.MaxAttempts {
-				e.State = "InfraFailed"
-				e.StatusCode = int32(codes.Unavailable)
-				e.StatusMessage = "lease expired; attempt budget exhausted"
-			} else {
-				e.CurrentEpoch++
-				e.State = "Retrying"
-			}
+		a.Phase = "Expired"
+		a.Status = "UNAVAILABLE"
+		a.FailureCategory = "infrastructure"
+		t.event(now, "lease_expired", e, a, nil)
+		if int(e.CurrentEpoch) >= s.cfg.MaxAttempts {
+			e.State = "InfraFailed"
+			e.StatusCode = int32(codes.Unavailable)
+			e.StatusMessage = "lease expired; attempt budget exhausted"
+		} else {
+			e.CurrentEpoch++
+			e.State = "Retrying"
 		}
 	}
-	if changed {
-		if err := s.commit(ctx, t); err != nil {
-			return err
-		}
-		for _, id := range expired {
-			delete(s.deadlines, id)
-			delete(s.commandDeadlines, id)
-		}
+	if err := s.commit(ctx, t); err != nil {
+		return err
+	}
+	for _, id := range ids {
+		delete(s.deadlines, id)
+		delete(s.commandDeadlines, id)
 	}
 	return nil
 }
