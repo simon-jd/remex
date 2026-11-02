@@ -32,8 +32,10 @@ The deployment is for a single trusted team; transport and admin endpoints must
 be protected by the deployment network. Worker assertions are not an untrusted
 hardware attestation service.
 
-Lease deadlines are in-process monotonic `time.Time` values. Persisted wall time
-is audit data only. On restart active attempts receive `--recovery-grace` before
+Lease deadlines are in-process monotonic `time.Time` values, kept in a min-heap
+with a per-worker index (`deadlines.go`): every RPC first expires what is due,
+visiting only the due attempts, and Lease finds the caller's own attempt
+without looking at other workers'. Persisted wall time is audit data only. On restart active attempts receive `--recovery-grace` before
 expiry; a running command's remaining server-side timeout is conservatively the
 same grace. The worker remains responsible for its own monotonic command timer.
 A worker's first RUNNING heartbeat starts that timer; materialization is excluded.
