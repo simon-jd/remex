@@ -98,6 +98,9 @@ func run(args []string) error {
 			}
 			request.Bisect.Revisions = revisions
 		}
+		if request.Bisect.Metric != nil && request.Runner.Metric == "" {
+			request.Runner.Metric = request.Bisect.Metric.Name
+		}
 		result, err := regress.Bisect(ctx, request.Bisect, request.Runner)
 		if err != nil {
 			return err

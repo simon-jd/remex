@@ -78,6 +78,21 @@ Every culprit requires fresh, complete `2k` trials on both adjacent commits.
 Budget exhaustion, absent reproduction or failed confirmation is INCONCLUSIVE;
 unclassifiable interior revisions can yield RANGE. The JSON preserves every probe.
 
+**Performance regressions.** With `"metric": {"name": "kernel_ms"}` in `bisect`,
+the search looks for a change in a measured value instead of a failure. Each
+passing test prints `REMEX_METRIC kernel_ms=<value>`; the Bazel runner then reads
+passing tests' logs too, and a probe command reports `"metrics": {"kernel_ms": ...}`.
+Both endpoints are measured `runs` times (default 10) and must differ by at least
+`min_shift` (default 5%) with a one-sided Mann–Whitney U p-value below `alpha`.
+A probed revision counts as BAD when its median is nearer the known-bad median
+and its values are significantly above the known-good values, and GOOD in the
+mirror case; an unsettled probe gets `runs` more values, up to `max_runs` (default
+30). The culprit and its parent are confirmed with `2 * runs` fresh values each.
+Set `higher_is_better` for throughputs. A failing test or a missing value skips
+the revision. Each p-value is per probe, with no correction across the search,
+and the endpoints are measured once, so drift larger than half the regression
+between calibration and a probe can misclassify it.
+
 `export --ledger ... --execution ... --cas ...` fetches and verifies the original
 Action, Command, every Directory and every file against their SHA-256 and byte
 size. It reconstructs only the Action's initial `input_root_digest`, including

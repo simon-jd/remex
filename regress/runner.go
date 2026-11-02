@@ -67,6 +67,9 @@ type BazelRunner struct {
 	// Optional explicit command, invoked with revision, seed and evidence dir.
 	// It must emit one Observation JSON. Useful for instrumented fault/corpus runs.
 	ProbeCommand []string `json:"probe_command,omitempty"`
+	// Metric, if set, is read from the logs of passing tests too: the last
+	// "REMEX_METRIC <metric>=<value>" line becomes Observation.Metrics.
+	Metric string `json:"metric,omitempty"`
 }
 
 func (r BazelRunner) Run(ctx context.Context, revision string, seed int) (Observation, error) {
@@ -199,8 +202,10 @@ func (r BazelRunner) Run(ctx context.Context, revision string, seed int) (Observ
 	if err != nil {
 		return Observation{}, err
 	}
+	metrics := map[string]float64{}
 	for i := range results {
-		if results[i].Status != "FAILED" && results[i].Status != "TIMEOUT" {
+		failed := results[i].Status == "FAILED" || results[i].Status == "TIMEOUT"
+		if !failed && (r.Metric == "" || results[i].Status != "PASSED") {
 			continue
 		}
 		uri, parseErr := url.Parse(results[i].LogURI)
@@ -216,7 +221,12 @@ func (r BazelRunner) Run(ctx context.Context, revision string, seed int) (Observ
 				readErr = fmt.Errorf("unsupported test log URI")
 			}
 			if readErr == nil {
-				results[i].FailureText = string(data)
+				if failed {
+					results[i].FailureText = string(data)
+				}
+				for name, value := range ParseMetrics(string(data)) {
+					metrics[name] = value
+				}
 				_ = os.WriteFile(filepath.Join(evidence, fmt.Sprintf("test-%d.log", i)), data, 0644)
 			}
 		}
@@ -238,6 +248,9 @@ func (r BazelRunner) Run(ctx context.Context, revision string, seed int) (Observ
 			Category: Infrastructure,
 			Detail:   "Bazel invocation failed despite passing test results",
 		}
+	}
+	if v, ok := metrics[r.Metric]; ok && r.Metric != "" && observation.Category == Pass {
+		observation.Metrics = map[string]float64{r.Metric: v}
 	}
 	observation.Evidence = append(observation.Evidence, evidence)
 	encoded, _ := json.MarshalIndent(observation, "", "  ")

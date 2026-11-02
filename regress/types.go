@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -28,6 +29,8 @@ type Observation struct {
 	Signature string   `json:"signature,omitempty"`
 	Detail    string   `json:"detail,omitempty"`
 	Evidence  []string `json:"evidence,omitempty"`
+	// Values reported by passing tests as "REMEX_METRIC name=value" lines.
+	Metrics map[string]float64 `json:"metrics,omitempty"`
 }
 
 type AttemptEvidence struct {
@@ -244,4 +247,22 @@ func normalizeStatus(s string) string {
 	default:
 		return s
 	}
+}
+
+// ParseMetrics reads "REMEX_METRIC name=value" lines; a later line for the
+// same name replaces an earlier one, and malformed lines are ignored.
+func ParseMetrics(text string) map[string]float64 {
+	metrics := map[string]float64{}
+	for _, line := range strings.Split(text, "\n") {
+		rest, ok := strings.CutPrefix(strings.TrimSpace(line), "REMEX_METRIC ")
+		if !ok {
+			continue
+		}
+		name, value, ok := strings.Cut(rest, "=")
+		name = strings.TrimSpace(name)
+		if v, err := strconv.ParseFloat(strings.TrimSpace(value), 64); ok && name != "" && err == nil {
+			metrics[name] = v
+		}
+	}
+	return metrics
 }

@@ -25,6 +25,9 @@ type BisectConfig struct {
 	CalibrationRuns     int `json:"calibration_runs"`
 	Budget              int `json:"budget"` // every invocation, including infrastructure failures
 	Seed                int `json:"seed"`
+	// Metric, if set, bisects a performance regression in the named metric
+	// instead of a failure; the calibration settings above are then unused.
+	Metric *MetricConfig `json:"metric,omitempty"`
 }
 
 // Decision is a probe's verdict on one revision.
@@ -64,6 +67,10 @@ type Probe struct {
 	Decision     Decision         `json:"decision"`
 	Observations []Observation    `json:"observations"`
 	Counts       map[Category]int `json:"counts"`
+	// Metric bisection only: the median of the probe's values and the
+	// p-value its decision rests on.
+	Median *float64 `json:"median,omitempty"`
+	P      *float64 `json:"p,omitempty"`
 }
 type BisectResult struct {
 	Revisions             []string   `json:"revisions"`
@@ -77,6 +84,10 @@ type BisectResult struct {
 	Runs                  int        `json:"runs"`
 	Budget                int        `json:"budget"`
 	Probes                []Probe    `json:"probes"`
+	// Metric bisection only: the settings used and the endpoints' relative
+	// median shift.
+	Metric *MetricConfig `json:"metric,omitempty"`
+	Shift  float64       `json:"shift,omitempty"`
 }
 
 // FailureRateLowerBound is an exact one-sided Clopper-Pearson binomial bound.
@@ -153,6 +164,9 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 			return r, fmt.Errorf("revisions must be nonempty and unique")
 		}
 		seen[rev] = true
+	}
+	if c.Metric != nil {
+		return bisectMetric(ctx, c, runner, r)
 	}
 	exhausted := false
 	// probe runs a revision until n valid runs, or until enoughFailures
