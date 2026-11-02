@@ -32,9 +32,9 @@ The metadata case checks actual observed phase times. The transient-NVML case
 launches the actual worker service but injects a small synthetic NVML shared
 library; its UUIDs are deliberate fixtures, not hardware evidence.
 
-An unavailable real environment is reported as SKIP. To record an actual run,
-set all three variables and use `-count=1`; do not describe a skipped case as
-passed hardware or cgroup validation.
+Without all three variables these tests report SKIP. A skipped case ran no
+worker and no cgroup, so it is not a pass; `-count=1` keeps Go from reusing
+an earlier result.
 
 The independent checker JSON/CLI cases are synthetic algorithm fixtures. They
 require `/usr/bin/protoc` and use the checked-in upstream REAPI source to encode

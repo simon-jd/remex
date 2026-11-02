@@ -22,13 +22,17 @@ python3 scripts/hardware-corpus.py generate --output build/planted-hardware-hist
 The generated `oracle.json` names all 96 commit IDs. Existing deterministic C++,
 CUDA and RTL defects start at indices 31, 47 and 63. The CUDA race starts at 72,
 and the independent RTL seed-gated defect at 80. Native `flaky.cc` remains at 72
-for algorithm testing. The JSON records source planting, not executed evidence.
+for algorithm testing. The file says where defects were planted in the source;
+it is not a record of any run.
 
 With real remex workers and CAS running, start with the CUDA boundary. The example
-uses CUDA 13.2, GCC 15 and a matching NVIDIA userspace library unpacked under
-`.deps/`; adapt these paths and flags to the actual worker toolchain:
+uses CUDA 13.2, GCC 15 and the NVIDIA userspace libraries of the running driver,
+unpacked under `.deps/nvidia-<driver version>/`; adapt these paths and flags to
+the worker's toolchain:
 
 ```sh
+driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)
+nvidia_lib="$PWD/.deps/nvidia-$driver/root/usr/lib/x86_64-linux-gnu"
 python3 scripts/hardware-corpus.py run \
   --repository build/planted-hardware-history \
   --evidence evidence/hardware-cuda-boundary \
@@ -37,8 +41,8 @@ python3 scripts/hardware-corpus.py run \
   --cuda-flag=--repo_env=CUDA_PATH=/usr/local/cuda-13.2 \
   --cuda-flag=--@rules_cuda//cuda:archs=sm_89 \
   --cuda-flag=--@rules_cuda//cuda:copts=--allow-unsupported-compiler \
-  --cuda-flag=--action_env=LD_LIBRARY_PATH="$PWD/.deps/nvidia-595.91.07/root/usr/lib/x86_64-linux-gnu" \
-  --cuda-flag=--test_env=LD_LIBRARY_PATH="$PWD/.deps/nvidia-595.91.07/root/usr/lib/x86_64-linux-gnu"
+  --cuda-flag=--action_env=LD_LIBRARY_PATH="$nvidia_lib" \
+  --cuda-flag=--test_env=LD_LIBRARY_PATH="$nvidia_lib"
 ```
 
 For RTL use a fresh evidence directory with `--indices 79-80 --scenarios
@@ -85,8 +89,8 @@ Run the planner/evidence regressions with:
 python3 -m unittest discover -s tests/regress -p 'test_*.py' -v
 ```
 
-These Python tests verify generation and evidence rules; they do not claim
-hardware execution.
+These Python tests check the generator and the evidence rules without a GPU or
+an RTL worker.
 
 For actual hardware flaky bisection, use `bisect --scenario cuda_race` or
 `bisect --scenario rtl_flaky`, with the same repository, connection and
@@ -111,8 +115,8 @@ one-shot baseline with no flaky confidence guarantee, so its reported culprit
 can differ from the planted oracle. Both commands save their raw results and
 an explicit `culprit_matches_oracle` comparison. The remex command additionally
 retains calibration, confidence bounds, fresh confirmation trials and budget
-accounting in its result JSON. Neither command claims success merely because a
-process exited normally.
+accounting in its result JSON. Each exits with status 2 unless its culprit is
+the planted one.
 
 For the same git-bisect flow with Bazel's three-attempt retry policy, use a
 separate evidence directory and add `--baseline-retry-attempts 3`. This option
