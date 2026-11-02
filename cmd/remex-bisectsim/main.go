@@ -260,7 +260,7 @@ func main() {
 					})
 					r, err := regress.Bisect(context.Background(), regress.BisectConfig{Revisions: revisions}, runner)
 					outcome := "inconclusive"
-					if err == nil && r.Conclusion == "CULPRIT" {
+					if err == nil && r.Conclusion == regress.ConclusionCulprit {
 						outcome = judge(index[r.Culprit])
 					}
 					budget = r.Budget

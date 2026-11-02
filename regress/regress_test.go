@@ -36,7 +36,7 @@ func TestCalibrationStopsAtTheTargetFailureCount(t *testing.T) {
 		}
 		return Observation{Category: Pass}, nil
 	}))
-	if err != nil || r.Conclusion != "CULPRIT" {
+	if err != nil || r.Conclusion != ConclusionCulprit {
 		t.Fatalf("%+v %v", r, err)
 	}
 	if n := len(r.Probes[0].Observations); n != 10 {
@@ -58,7 +58,7 @@ func TestRareFlakeBisectsWithinBudget(t *testing.T) {
 		}
 		return Observation{Category: Pass}, nil
 	}))
-	if err != nil || r.Conclusion != "CULPRIT" || r.Culprit != "r19" {
+	if err != nil || r.Conclusion != ConclusionCulprit || r.Culprit != "r19" {
 		t.Fatalf("10%% flake: %s %s after %d runs (%s)", r.Conclusion, r.Culprit, r.Runs, r.Reason)
 	}
 }
@@ -76,10 +76,10 @@ func TestBisectConfirmsAdjacentBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Conclusion != "CULPRIT" || r.Culprit != "c" {
+	if r.Conclusion != ConclusionCulprit || r.Culprit != "c" {
 		t.Fatalf("%+v", r)
 	}
-	if r.Probes[len(r.Probes)-1].Purpose != "confirm-culprit" || len(r.Probes[len(r.Probes)-1].Observations) != 2*r.K || len(r.Probes[len(r.Probes)-2].Observations) != 2*r.K {
+	if r.Probes[len(r.Probes)-1].Purpose != PurposeConfirmCulprit || len(r.Probes[len(r.Probes)-1].Observations) != 2*r.K || len(r.Probes[len(r.Probes)-2].Observations) != 2*r.K {
 		t.Fatal("missing full confirmation")
 	}
 }
@@ -88,13 +88,13 @@ func TestBisectBudgetInfraAndSignature(t *testing.T) {
 		r, err := Bisect(context.Background(), BisectConfig{Revisions: []string{"a", "b"}, Budget: 7}, RunnerFunc(func(context.Context, string, int) (Observation, error) {
 			return Observation{Category: Infrastructure}, nil
 		}))
-		if err != nil || r.Conclusion != "INCONCLUSIVE" || r.Runs != 7 {
+		if err != nil || r.Conclusion != ConclusionInconclusive || r.Runs != 7 {
 			t.Fatalf("%+v %v", r, err)
 		}
 	})
 	t.Run("unreproducible", func(t *testing.T) {
 		r, _ := Bisect(context.Background(), BisectConfig{Revisions: []string{"a", "b"}}, RunnerFunc(func(context.Context, string, int) (Observation, error) { return Observation{Category: Pass}, nil }))
-		if r.Conclusion != "INCONCLUSIVE" {
+		if r.Conclusion != ConclusionInconclusive {
 			t.Fatal(r)
 		}
 	})
@@ -109,7 +109,7 @@ func TestBisectBudgetInfraAndSignature(t *testing.T) {
 				return Observation{Category: TestFailure, Signature: "target"}, nil
 			}
 		}))
-		if r.Conclusion != "RANGE" || len(r.Range) != 2 {
+		if r.Conclusion != ConclusionRange || len(r.Range) != 2 {
 			t.Fatal(r)
 		}
 	})
@@ -125,7 +125,7 @@ func TestBisectBudgetInfraAndSignature(t *testing.T) {
 			}
 			return Observation{Category: Pass}, nil
 		}))
-		if r.Conclusion != "INCONCLUSIVE" {
+		if r.Conclusion != ConclusionInconclusive {
 			t.Fatal(r)
 		}
 	})

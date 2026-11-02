@@ -26,25 +26,57 @@ type BisectConfig struct {
 	Budget              int `json:"budget"` // every invocation, including infrastructure failures
 	Seed                int `json:"seed"`
 }
+
+// Decision is a probe's verdict on one revision.
+type Decision string
+
+const (
+	DecisionGood Decision = "GOOD"
+	DecisionBad  Decision = "BAD"
+	// DecisionSkip: the probe ran out of budget or saw another failure
+	// signature, so the revision stays unclassified.
+	DecisionSkip Decision = "SKIP"
+)
+
+// Purpose names the step of a bisection that ran a probe.
+type Purpose string
+
+const (
+	PurposeCalibration    Purpose = "calibration"
+	PurposeKnownGood      Purpose = "known-good"
+	PurposeSearch         Purpose = "search"
+	PurposeConfirmParent  Purpose = "confirm-parent"
+	PurposeConfirmCulprit Purpose = "confirm-culprit"
+)
+
+// Conclusion is the outcome of a bisection.
+type Conclusion string
+
+const (
+	ConclusionCulprit      Conclusion = "CULPRIT"
+	ConclusionRange        Conclusion = "RANGE"
+	ConclusionInconclusive Conclusion = "INCONCLUSIVE"
+)
+
 type Probe struct {
 	Revision     string           `json:"revision"`
-	Purpose      string           `json:"purpose"`
-	Decision     string           `json:"decision"`
+	Purpose      Purpose          `json:"purpose"`
+	Decision     Decision         `json:"decision"`
 	Observations []Observation    `json:"observations"`
 	Counts       map[Category]int `json:"counts"`
 }
 type BisectResult struct {
-	Revisions             []string `json:"revisions"`
-	Conclusion            string   `json:"conclusion"`
-	Culprit               string   `json:"culprit,omitempty"`
-	Range                 []string `json:"range,omitempty"`
-	Reason                string   `json:"reason"`
-	Signature             string   `json:"signature"`
-	FailureRateLowerBound float64  `json:"failure_rate_lower_bound"`
-	K                     int      `json:"k"`
-	Runs                  int      `json:"runs"`
-	Budget                int      `json:"budget"`
-	Probes                []Probe  `json:"probes"`
+	Revisions             []string   `json:"revisions"`
+	Conclusion            Conclusion `json:"conclusion"`
+	Culprit               string     `json:"culprit,omitempty"`
+	Range                 []string   `json:"range,omitempty"`
+	Reason                string     `json:"reason"`
+	Signature             string     `json:"signature"`
+	FailureRateLowerBound float64    `json:"failure_rate_lower_bound"`
+	K                     int        `json:"k"`
+	Runs                  int        `json:"runs"`
+	Budget                int        `json:"budget"`
+	Probes                []Probe    `json:"probes"`
 }
 
 // FailureRateLowerBound is an exact one-sided Clopper-Pearson binomial bound.
@@ -98,7 +130,7 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 		// for a 10% flake in 1,000 commits with 10% infrastructure noise.
 		c.Budget = 2000
 	}
-	r := BisectResult{Conclusion: "INCONCLUSIVE", Revisions: append([]string(nil), c.Revisions...), Signature: c.Signature, Budget: c.Budget, Probes: []Probe{}}
+	r := BisectResult{Conclusion: ConclusionInconclusive, Revisions: append([]string(nil), c.Revisions...), Signature: c.Signature, Budget: c.Budget, Probes: []Probe{}}
 	if len(c.Revisions) < 2 || c.Alpha <= 0 || c.Alpha >= 1 || c.CalibrationRuns < 1 || c.CalibrationRuns > 10000 || c.CalibrationFailures < 1 || c.Budget < 1 || runner == nil {
 		return r, fmt.Errorf("invalid bisection configuration")
 	}
@@ -112,8 +144,8 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 	exhausted := false
 	// probe runs a revision until n valid runs, or until enoughFailures
 	// matching failures (0: no limit), or, with earlyBad, the first one.
-	probe := func(index, n int, purpose string, earlyBad bool, enoughFailures int) Probe {
-		p := Probe{Revision: c.Revisions[index], Purpose: purpose, Decision: "SKIP", Counts: map[Category]int{}, Observations: []Observation{}}
+	probe := func(index, n int, purpose Purpose, earlyBad bool, enoughFailures int) Probe {
+		p := Probe{Revision: c.Revisions[index], Purpose: purpose, Decision: DecisionSkip, Counts: map[Category]int{}, Observations: []Observation{}}
 		valid, failures := 0, 0
 		other := false
 		for valid < n {
@@ -132,14 +164,14 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 			case Pass:
 				valid++
 			case TestFailure, Timeout:
-				if r.Signature == "" && purpose == "calibration" {
+				if r.Signature == "" && purpose == PurposeCalibration {
 					r.Signature = o.Signature
 				}
 				if o.Signature != "" && o.Signature == r.Signature {
 					valid++
 					failures++
 					if earlyBad || (enoughFailures > 0 && failures >= enoughFailures) {
-						p.Decision = "BAD"
+						p.Decision = DecisionBad
 						r.Probes = append(r.Probes, p)
 						return p
 					}
@@ -155,21 +187,21 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 		}
 		if !exhausted && !other && valid == n {
 			if failures > 0 {
-				p.Decision = "BAD"
+				p.Decision = DecisionBad
 			} else {
-				p.Decision = "GOOD"
+				p.Decision = DecisionGood
 			}
 		}
 		r.Probes = append(r.Probes, p)
 		return p
 	}
 	bad := len(c.Revisions) - 1
-	cal := probe(bad, c.CalibrationRuns, "calibration", false, c.CalibrationFailures)
+	cal := probe(bad, c.CalibrationRuns, PurposeCalibration, false, c.CalibrationFailures)
 	if exhausted {
 		r.Reason = "budget exhausted or context cancelled during calibration"
 		return r, nil
 	}
-	if cal.Decision != "BAD" || r.Signature == "" {
+	if cal.Decision != DecisionBad || r.Signature == "" {
 		r.Reason = "known-bad revision did not reproduce the target signature"
 		return r, nil
 	}
@@ -198,8 +230,8 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 	if r.K < 1 {
 		r.K = 1
 	}
-	goodProbe := probe(0, r.K, "known-good", false, 0)
-	if goodProbe.Decision != "GOOD" {
+	goodProbe := probe(0, r.K, PurposeKnownGood, false, 0)
+	if goodProbe.Decision != DecisionGood {
 		r.Reason = "known-good baseline is not confirmed"
 		return r, nil
 	}
@@ -219,11 +251,11 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 				break
 			}
 		}
-		p := probe(mid, r.K, "search", true, 0)
+		p := probe(mid, r.K, PurposeSearch, true, 0)
 		switch p.Decision {
-		case "GOOD":
+		case DecisionGood:
 			good = mid
-		case "BAD":
+		case DecisionBad:
 			bad = mid
 		default:
 			skipped[mid] = true
@@ -235,18 +267,18 @@ func Bisect(ctx context.Context, c BisectConfig, runner Runner) (BisectResult, e
 		return r, nil
 	}
 	if bad-good > 1 {
-		r.Conclusion = "RANGE"
+		r.Conclusion = ConclusionRange
 		r.Reason = "different failure signatures leave unclassifiable commits"
 		return r, nil
 	}
 	// Confirmation is fresh, complete 2k samples on each side; early stopping is forbidden.
-	parent := probe(good, 2*r.K, "confirm-parent", false, 0)
-	child := probe(bad, 2*r.K, "confirm-culprit", false, 0)
-	if exhausted || parent.Decision != "GOOD" || child.Decision != "BAD" {
+	parent := probe(good, 2*r.K, PurposeConfirmParent, false, 0)
+	child := probe(bad, 2*r.K, PurposeConfirmCulprit, false, 0)
+	if exhausted || parent.Decision != DecisionGood || child.Decision != DecisionBad {
 		r.Reason = "fresh 2k confirmation failed or budget exhausted"
 		return r, nil
 	}
-	r.Conclusion = "CULPRIT"
+	r.Conclusion = ConclusionCulprit
 	r.Culprit = c.Revisions[bad]
 	r.Reason = "adjacent revisions passed fresh 2k confirmation"
 	return r, nil
