@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"testing"
 )
 
@@ -42,5 +44,28 @@ func TestWrongUpper95(t *testing.T) {
 	}
 	if got := wrongUpper95(1000, 1000); got != 1 {
 		t.Fatalf("wrongUpper95(1000, 1000) = %v, want 1", got)
+	}
+}
+
+// The reported upper bound matches scipy's beta.ppf(0.95, k + 1, n - k)
+// (regress/testdata/scipy-reference.json, from scripts/scipy-reference.py).
+func TestWrongUpper95MatchesScipy(t *testing.T) {
+	raw, err := os.ReadFile("../../regress/testdata/scipy-reference.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reference struct {
+		Upper []struct {
+			K, N    int
+			Upper95 float64
+		} `json:"clopper_pearson_upper95"`
+	}
+	if err := json.Unmarshal(raw, &reference); err != nil || len(reference.Upper) == 0 {
+		t.Fatalf("scipy reference: %v", err)
+	}
+	for _, c := range reference.Upper {
+		if got := wrongUpper95(c.K, c.N); math.Abs(got-c.Upper95) > 1e-9 {
+			t.Errorf("wrongUpper95(%d, %d) = %.12g, scipy %.12g", c.K, c.N, got, c.Upper95)
+		}
 	}
 }
