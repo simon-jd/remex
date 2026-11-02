@@ -4,8 +4,12 @@
 # Every cell runs REMEX_BENCH_RUNS times (default 5), one pass over the
 # matrix at a time, so slow drift on the host spreads across all cells.
 # REMEX_BENCH_QUEUES lists the -queue depths measured with the in-memory store.
+# REMEX_BENCH_MATRIX=workers runs the worker sweep instead: every count in
+# REMEX_BENCH_WORKERS (default 64 512 4096) with both stores, then 10 s runs
+# of 64 workers on the in-memory store with Go's GC on and with GOGC=off.
 # Each record carries the repository commit (suffixed -dirty if tracked
-# files outside results/ differ from it) and the host environment.
+# files outside results/ differ from it; REMEX_BENCH_COMMIT overrides it for
+# a binary built from another commit) and the host environment.
 # PostgreSQL runs in a throwaway container (never the deployment's volume)
 # that is reset before every PostgreSQL run.
 set -euo pipefail
@@ -19,6 +23,7 @@ name=remex-bench-postgres port=${REMEX_BENCH_PG_PORT:-25432}
 dsn="postgres://remex:bench@127.0.0.1:$port/remex?sslmode=disable"
 commit=$(git -C "$root" rev-parse HEAD)
 git -C "$root" diff --quiet HEAD -- . ':!results' || commit+=-dirty
+commit=${REMEX_BENCH_COMMIT:-$commit}
 storage=$(df --output=source "$(docker info -f '{{.DockerRootDir}}')" | tail -1)
 disk=$(lsblk -dno MODEL "/dev/$(lsblk -no PKNAME "$storage" | head -1)" 2>/dev/null || true)
 if ! docker inspect "$name" >/dev/null 2>&1; then
@@ -32,6 +37,17 @@ run() {
     -env postgres_image="$image" -env docker_storage="$storage" -env docker_disk="$disk" "$@"
 }
 
+if [[ ${REMEX_BENCH_MATRIX:-default} == workers ]]; then
+  for i in $(seq "$runs"); do
+    for workers in ${REMEX_BENCH_WORKERS:-64 512 4096}; do
+      run -run "$i" -workers "$workers"
+      reset; run -run "$i" -workers "$workers" -postgres "$dsn"
+    done
+    run -run "$i" -duration 10s
+    GOGC=off run -run "$i" -duration 10s
+  done
+  exit 0
+fi
 for i in $(seq "$runs"); do
   for history in 0 1000 5000; do run -run "$i" -history "$history"; done
   run -run "$i" -history 1000 -stall 3s
