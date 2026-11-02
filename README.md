@@ -21,8 +21,9 @@ ledger that already holds 0–5,000 finished executions, while a probe worker
 heartbeats one long-running action every 100 ms. `-stall 3s` makes every
 action-cache write take 3 s, and `-queue N` keeps N runnable actions queued
 ahead of the workers. `scripts/bench-control-plane.sh` ran each cell five
-times for 20 s (`results/control-plane.jsonl`); actions per second are the
-median with the range over the five runs:
+times for 20 s (`results/control-plane.jsonl`, at commit 25d4067, before the
+deadline heap described below); actions per second are the median with the
+range over the five runs:
 
 | Store | History | Queued | AC write stall | Actions/s | Probe heartbeat, median / worst | Attempts lost |
 |---|---|---|---|---|---|---|
@@ -58,13 +59,55 @@ median with the range over the five runs:
   probe's heartbeats change nothing and get CONTINUE, one of the two answers
   allowed to skip the durability wait ([docs/design.md](docs/design.md)).
   With the in-memory store the worst probe heartbeat is tens to hundreds of
-  milliseconds in every cell, queued work or not. Ranges are over five
-  runs, not confidence intervals.
+  milliseconds in every cell, queued work or not; the worker sweep below
+  shows why. Ranges are over five runs, not confidence intervals.
 - **Where.** One host: Intel Core i9-13900K (32 threads), 123 GiB of RAM,
   a Samsung 990 EVO Plus NVMe, Linux 7.0, Go 1.27.2, and PostgreSQL 18.6 in
   a container with default settings (fsync and synchronous_commit on,
   wal_sync_method fdatasync, shared_buffers 128MB). Every record carries its
   environment and the commit it measured.
+
+**More workers.** Lease, Heartbeat and Complete used to scan every live
+attempt's lease deadline under the scheduler lock; they now keep deadlines
+in a min-heap with a per-worker index. `REMEX_BENCH_MATRIX=workers
+scripts/bench-control-plane.sh` runs the empty-history cells with 64, 512
+and 4,096 workers: five runs with the heap
+(`results/control-plane-workers.jsonl`) and three of the scanning scheduler
+(`results/control-plane-workers-deadline-scan.jsonl`, commit f30b45c):
+
+| Store | Workers | Actions/s, heap | Actions/s, scan | Probe heartbeat median / worst, heap | Same, scan |
+|---|---|---|---|---|---|
+| memory | 64 | 27,770 (24,838–30,548) | 21,729 (19,227–26,245) | <0.01 ms / 33–211 ms | 0.01 ms / 109–191 ms |
+| memory | 512 | 27,918 (23,675–28,962) | 15,351 (13,462–17,037) | 2.2 ms / 35–276 ms | 4.3 ms / 54–114 ms |
+| memory | 4,096 | 23,559 (20,818–24,761) | 3,361 (3,015–4,193) | 23 ms / 112–204 ms | 154 ms / 205–350 ms |
+| PostgreSQL | 64 | 1,268 (1,188–1,425) | 1,410 (1,184–1,479) | <0.01 ms / 2–10 ms | <0.01 ms / 2–14 ms |
+| PostgreSQL | 512 | 2,680 (1,977–2,707) | 2,550 (2,069–2,721) | <0.01 ms / 20–43 ms | 0.01 ms / 11–39 ms |
+| PostgreSQL | 4,096 | 3,165 (2,874–3,419) | 2,718 (2,520–2,908) | <0.01 ms / 75–217 ms | 16 ms / 322–381 ms |
+
+- **The scan grew with the workers.** With 4,096 workers on the in-memory
+  store the heap completes 7.0 times as many actions per second as the scan
+  did, and the probe's median heartbeat drops from 154 ms to 23 ms. At 64
+  workers the ranges overlap. With PostgreSQL every worker waits for its own
+  commits either way, and throughput rises with the worker count because
+  groups get bigger.
+- **What makes the worst heartbeat slow.** Each record counts, for every
+  probe heartbeat over 10 ms, whether a commit reallocated the ledger's
+  event log or a GC cycle ended while it waited. The in-memory ledger keeps
+  all events in one slice of 96-byte entries; a 20 s run reaches 3.5–4.3
+  million events, and each of the 45–46 times the slice outgrows its
+  capacity, a commit copies all of it, up to about 300 MB, under the lock.
+  With 64 workers the slowest heartbeat of every run waited on such a copy,
+  as did 21 of the 29 over 10 ms; one of those also overlapped the end of a
+  GC cycle. With GC
+  off (`GOGC=off`, 10 s runs) all 7 slow heartbeats were copies. GC
+  stop-the-world pauses stayed at or below 3.7 ms. PostgreSQL runs build a
+  ledger about twenty times smaller (0.17–0.2 million events), and their
+  worst heartbeat at 64 workers is 2–10 ms. At 4,096 workers most of the
+  delay is waiting for the lock: 487 heartbeats over 10 ms, 42 during a
+  copy and 40 during GC, and the longest GC pause fell in the runtime's
+  histogram bucket that ends at 101 ms.
+  Copying the whole event log on growth is a cost of keeping the ledger in
+  one slice; a chunked log would remove it, and is not implemented.
 
 **Scheduler restart.** `tests/faults/bazel_restart_test.py` runs a real
 Bazel 9.3 build against a scheduler with a PostgreSQL ledger and 2 s leases,
