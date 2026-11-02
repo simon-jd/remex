@@ -227,7 +227,7 @@ func main() {
 			case <-time.After(100 * time.Millisecond):
 			}
 			gcBefore := gcCycles()
-			_, capBefore := s.EventLog()
+			_, growthsBefore := s.EventLog()
 			started := time.Now()
 			r, err := s.Heartbeat(
 				ctx,
@@ -241,13 +241,13 @@ func main() {
 			took := time.Since(started)
 			probe = append(probe, took)
 			if took > 10*time.Millisecond {
-				events, capAfter := s.EventLog()
+				events, growthsAfter := s.EventLog()
 				slow = append(slow, slowHeartbeat{
 					MS:          float64(took.Microseconds()) / 1000,
 					AtS:         time.Duration(started.UnixNano() - windowStart.Load()).Seconds(),
 					Completed:   completed.Load(),
 					Events:      events,
-					EventGrowth: capAfter != capBefore,
+					EventGrowth: growthsAfter != growthsBefore,
 					GCCycles:    gcCycles() - gcBefore,
 				})
 			}
@@ -297,7 +297,7 @@ func main() {
 	close(stop)
 	probeDone.Wait()
 	stopTick()
-	events, _ := s.EventLog()
+	events, growths := s.EventLog()
 
 	sort.Slice(probe, func(i, j int) bool { return probe[i] < probe[j] })
 	over := 0
@@ -332,6 +332,7 @@ func main() {
 		// Ledger changes per store transaction: the group-commit batch size.
 		"changes_per_write": float64(changesAfter-changesBefore) / float64(max(writesAfter-writesBefore, 1)),
 		"ledger_events":     events,
+		"event_log_growths": growths,
 		"gc":                gcEnd.since(gcStart),
 		"slow_heartbeats":   summarizeSlow(slow),
 	}
