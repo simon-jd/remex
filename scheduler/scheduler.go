@@ -47,7 +47,7 @@ type Scheduler struct {
 	cache            Cache
 	cfg              Config
 	ledger           *Ledger
-	deadlines        map[string]time.Time
+	deadlines        *leaseDeadlines
 	commandDeadlines map[string]time.Time
 	workers          map[string]workerInfo
 	// Closed when the named execution changes; Execute/WaitExecution streams
@@ -97,7 +97,7 @@ func New(ctx context.Context, store Store, cache Cache, cfg Config) (*Scheduler,
 		cache:            cache,
 		cfg:              cfg,
 		ledger:           l,
-		deadlines:        map[string]time.Time{},
+		deadlines:        newLeaseDeadlines(),
 		commandDeadlines: map[string]time.Time{},
 		workers:          map[string]workerInfo{},
 		waiters:          map[string]chan struct{}{},
@@ -121,7 +121,7 @@ func New(ctx context.Context, store Store, cache Cache, cfg Config) (*Scheduler,
 			return nil, fmt.Errorf("attempt %s has missing execution", a.ID)
 		}
 		if a.Epoch == e.CurrentEpoch && !terminal(e) {
-			s.deadlines[a.ID] = now.Add(cfg.RecoveryGrace)
+			s.deadlines.set(a.ID, a.WorkerID, now.Add(cfg.RecoveryGrace))
 			if a.CommandStartedAt != nil && a.Phase == "Running" {
 				var action re.Action
 				if proto.Unmarshal(e.Action, &action) == nil && action.Timeout != nil {
@@ -605,9 +605,9 @@ func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseRes
 		return nil, err
 	}
 	// One attempt per worker: only live attempts have deadlines.
-	for id, deadline := range s.deadlines {
+	for id, deadline := range s.deadlines.worker(r.WorkerId) {
 		a := s.ledger.attempt(id)
-		if a == nil || a.WorkerID != r.WorkerId || !now.Before(deadline) {
+		if a == nil || a.WorkerID != r.WorkerId || !now.Before(deadline.at) {
 			continue
 		}
 		e := s.ledger.execution(a.ExecutionID)
@@ -645,7 +645,7 @@ func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseRes
 			return nil, err
 		}
 		seen = 0
-		s.deadlines[a.ID] = now.Add(s.cfg.LeaseDuration)
+		s.deadlines.set(a.ID, a.WorkerID, now.Add(s.cfg.LeaseDuration))
 		return &w.LeaseResponse{
 			Available:       true,
 			ExecutionId:     e.ID,
@@ -668,11 +668,12 @@ func (s *Scheduler) fence(worker, id string, epoch int64, now time.Time) (*Attem
 		return nil, nil, false
 	}
 	e := s.ledger.execution(a.ExecutionID)
+	deadline, _ := s.deadlines.get(a.ID)
 	return a, e, a.WorkerID == worker &&
 		a.Epoch == epoch &&
 		e.CurrentEpoch == epoch &&
 		!terminal(e) &&
-		now.Before(s.deadlines[a.ID])
+		now.Before(deadline)
 }
 func (s *Scheduler) Heartbeat(ctx context.Context, r *w.HeartbeatRequest) (_ *w.HeartbeatResponse, err error) {
 	var seen uint64
@@ -745,7 +746,7 @@ func (s *Scheduler) Heartbeat(ctx context.Context, r *w.HeartbeatRequest) (_ *w.
 	if phase == "Uploading" {
 		delete(s.commandDeadlines, a.ID)
 	}
-	s.deadlines[a.ID] = now.Add(s.cfg.LeaseDuration)
+	s.deadlines.set(a.ID, a.WorkerID, now.Add(s.cfg.LeaseDuration))
 	if worker, ok := s.workers[r.WorkerId]; ok {
 		worker.deadline = now.Add(2 * s.cfg.LeaseDuration)
 		s.workers[r.WorkerId] = worker
@@ -765,17 +766,19 @@ func (s *Scheduler) expireLocked(ctx context.Context, now time.Time) error {
 	if s.failed != nil {
 		return status.Error(codes.Unavailable, s.failed.Error())
 	}
-	// Only live deadlines are examined, never the whole attempt history.
+	// Only due deadlines are examined, never every live attempt or the
+	// attempt history. A due attempt that is no longer current (cancelled,
+	// or superseded) has nothing to expire; its deadline is dropped.
 	ids := []string{}
-	for id, deadline := range s.deadlines {
-		if now.Before(deadline) {
-			continue
-		}
+	for _, id := range s.deadlines.due(now) {
 		if a := s.ledger.attempt(id); a != nil {
 			if e := s.ledger.execution(a.ExecutionID); a.Epoch == e.CurrentEpoch && !terminal(e) {
 				ids = append(ids, id)
+				continue
 			}
 		}
+		s.deadlines.remove(id)
+		delete(s.commandDeadlines, id)
 	}
 	if len(ids) == 0 {
 		return nil
@@ -803,7 +806,7 @@ func (s *Scheduler) expireLocked(ctx context.Context, now time.Time) error {
 		return err
 	}
 	for _, id := range ids {
-		delete(s.deadlines, id)
+		s.deadlines.remove(id)
 		delete(s.commandDeadlines, id)
 	}
 	return nil

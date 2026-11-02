@@ -50,7 +50,7 @@ func TestIdleHistoryExpiryBoundaryAndAtomicity(t *testing.T) {
 	if err := f.s.Tick(f.ctx); err != nil {
 		t.Fatal(err)
 	}
-	if len(f.s.deadlines) != 2 || f.s.Export().execution(ids[0]).CurrentEpoch != 1 {
+	if f.s.deadlines.len() != 2 || f.s.Export().execution(ids[0]).CurrentEpoch != 1 {
 		t.Fatal("lease expired before its deadline")
 	}
 	f.now = f.now.Add(time.Nanosecond)
@@ -90,7 +90,7 @@ func TestIdleHistoryExpiryBoundaryAndAtomicity(t *testing.T) {
 			t.Fatalf("deadline equality failed to expire: %+v", e)
 		}
 	}
-	if len(f.s.deadlines) != 0 {
+	if f.s.deadlines.len() != 0 {
 		t.Fatal("successful expiry kept live deadlines")
 	}
 }

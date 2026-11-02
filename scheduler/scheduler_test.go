@@ -407,6 +407,18 @@ func TestCancellationAndCommandTimeout(t *testing.T) {
 	if err != nil || resp.Decision != w.CompleteResponse_FENCED {
 		t.Fatalf("cancel complete %v %v", resp, err)
 	}
+	// The cancelled attempt's deadline is dropped once it is due, without
+	// expiring anything.
+	f.now = f.now.Add(f.s.cfg.LeaseDuration)
+	if err = f.s.Tick(f.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if f.s.deadlines.len() != 0 || len(f.s.commandDeadlines) != 0 {
+		t.Fatalf("cancelled attempt kept %d deadlines", f.s.deadlines.len())
+	}
+	if e := f.s.Export().execution(id); e.State != "Cancelled" || e.CurrentEpoch != 1 {
+		t.Fatalf("dropping a cancelled deadline changed the execution: %+v", e)
+	}
 }
 func TestRestartUsesFreshGraceNotWallClock(t *testing.T) {
 	f := setup(t, false)

@@ -205,7 +205,7 @@ func (s *Scheduler) Complete(ctx context.Context, r *w.CompleteRequest) (_ *w.Co
 	if err := s.commit(ctx, t); err != nil {
 		return nil, err
 	}
-	delete(s.deadlines, a.ID)
+	s.deadlines.remove(a.ID)
 	delete(s.commandDeadlines, a.ID)
 	// Publishing is separate from the durable commit and runs without the
 	// lock: a slow action cache must never stall leases and heartbeats. A
