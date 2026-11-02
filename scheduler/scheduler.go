@@ -154,6 +154,14 @@ func (s *Scheduler) Close() { s.log.close() }
 // CommitStats reports how many ledger changes were made and how many store
 // transactions made them durable.
 func (s *Scheduler) CommitStats() (changes, writes int) { return s.log.stats() }
+
+// EventLog reports the length and capacity of the in-memory event log. A
+// change in capacity means the log was reallocated and copied under the lock.
+func (s *Scheduler) EventLog() (length, capacity int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.ledger.Events), cap(s.ledger.Events)
+}
 func newID(prefix string) string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {

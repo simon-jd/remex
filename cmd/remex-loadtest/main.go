@@ -12,6 +12,11 @@
 // each worker submits one action and leases the oldest, so the queue stays
 // that deep and every Lease has to find its work behind it.
 //
+// To explain the slowest heartbeats, each record also reports Go's GC
+// cycles and stop-the-world pauses during the window, and for every probe
+// heartbeat over 10 ms whether a GC cycle ended or the scheduler's in-memory
+// event log was reallocated while it waited.
+//
 // Each record also carries the host, Go and PostgreSQL environment and the
 // -commit it was given. It uses only the scheduler's exported API.
 package main
@@ -206,6 +211,9 @@ func main() {
 	}
 	stop := make(chan struct{})
 	var probe []time.Duration
+	var slow []slowHeartbeat
+	var completed atomic.Int64
+	var windowStart atomic.Int64 // UnixNano when the workers started
 	probeLost := false
 	var probeDone sync.WaitGroup
 	probeDone.Add(1)
@@ -218,6 +226,8 @@ func main() {
 				return
 			case <-time.After(100 * time.Millisecond):
 			}
+			gcBefore := gcCycles()
+			_, capBefore := s.EventLog()
 			started := time.Now()
 			r, err := s.Heartbeat(
 				ctx,
@@ -228,7 +238,19 @@ func main() {
 					Phase:     phase,
 				},
 			)
-			probe = append(probe, time.Since(started))
+			took := time.Since(started)
+			probe = append(probe, took)
+			if took > 10*time.Millisecond {
+				events, capAfter := s.EventLog()
+				slow = append(slow, slowHeartbeat{
+					MS:          float64(took.Microseconds()) / 1000,
+					AtS:         time.Duration(started.UnixNano() - windowStart.Load()).Seconds(),
+					Completed:   completed.Load(),
+					Events:      events,
+					EventGrowth: capAfter != capBefore,
+					GCCycles:    gcCycles() - gcBefore,
+				})
+			}
 			if err != nil {
 				log.Fatalf("probe heartbeat: %v", err)
 			}
@@ -239,9 +261,10 @@ func main() {
 		}
 	}()
 
-	var completed atomic.Int64
 	var group sync.WaitGroup
 	changesBefore, writesBefore := s.CommitStats()
+	gcStart := readGC()
+	windowStart.Store(time.Now().UnixNano())
 	deadline := time.Now().Add(*duration)
 	for i := range *workers {
 		group.Add(1)
@@ -270,9 +293,11 @@ func main() {
 	group.Wait()
 	elapsed := time.Since(started)
 	changesAfter, writesAfter := s.CommitStats()
+	gcEnd := readGC()
 	close(stop)
 	probeDone.Wait()
 	stopTick()
+	events, _ := s.EventLog()
 
 	sort.Slice(probe, func(i, j int) bool { return probe[i] < probe[j] })
 	over := 0
@@ -306,6 +331,9 @@ func main() {
 		"probe_lost":         probeLost,
 		// Ledger changes per store transaction: the group-commit batch size.
 		"changes_per_write": float64(changesAfter-changesBefore) / float64(max(writesAfter-writesBefore, 1)),
+		"ledger_events":     events,
+		"gc":                gcEnd.since(gcStart),
+		"slow_heartbeats":   summarizeSlow(slow),
 	}
 	_ = json.NewEncoder(os.Stdout).Encode(out)
 }
