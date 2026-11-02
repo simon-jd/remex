@@ -12,15 +12,18 @@ remote workers, so both sides get the same CPUs.
 
     scripts/benchmark-cpu.py --output build/cpu-bench --trials 3 > results/cpu-build.jsonl
 
-Prints one JSON line per build. The output directory keeps every log, BEP
+Prints one JSON line per build; remote builds also summarize the scheduler's
+ledger (see ledger_summary). The output directory keeps every log, BEP
 file, execution log and ledger.
 """
 import argparse
+import datetime
 import hashlib
 import json
 import os
 import pathlib
 import platform
+import statistics
 import subprocess
 import time
 import urllib.request
@@ -49,6 +52,27 @@ def runner_counts(bep):
             counts = {r["name"]: int(r.get("count", 0)) for r in summary.get("runnerCount", [])}
             return int(summary.get("actionsExecuted", 0)), counts
     return None, {}
+
+
+def ledger_summary(path, seen):
+    """Where a remote build's actions spent their time, from the scheduler's
+    ledger: executions this build created (not in seen), their median wait
+    from creation to lease, the span from the first creation to the last
+    commit, and the summed lease-to-commit time over all workers."""
+    def at(event):
+        return datetime.datetime.fromisoformat(event["time"].replace("Z", "+00:00")).timestamp()
+    created, leased, committed = {}, {}, {}
+    for event in json.loads(path.read_text())["events"]:
+        target = {"execution_created": created, "lease_granted": leased, "attempt_committed": committed}.get(event["kind"])
+        if target is not None and event["execution_id"] not in seen:
+            target[event["execution_id"]] = at(event)
+    seen.update(created)
+    if not created or set(created) != set(committed):
+        return dict(executions=len(created), complete=False)
+    return dict(executions=len(created), complete=True,
+                queued_ms_median=round(statistics.median(leased[x] - created[x] for x in created) * 1000, 1),
+                scheduler_span_s=round(max(committed.values()) - min(created.values()), 2),
+                worker_busy_s=round(sum(committed[x] - leased[x] for x in created), 2))
 
 
 def environment(cores, jobs):
@@ -168,10 +192,14 @@ def main():
                     if binary.is_file():
                         digests[target] = hashlib.sha256(binary.read_bytes()).hexdigest()
                 actions, runners = runner_counts(folder / "bep.json")
+                row = dict(trial=trial, build=name, exit_code=code, seconds=round(elapsed, 2), actions_executed=actions,
+                           runners=runners, output_sha256=digests)
+                if name == "remote-cold":
+                    seen = set()
                 if name.startswith("remote"):
                     stack.ledger(folder / "ledger.json")
-                row = dict(trial=trial, build=name, exit_code=code, seconds=round(elapsed, 2), actions_executed=actions,
-                           runners=runners, output_sha256=digests, environment=env)
+                    row["ledger"] = ledger_summary(folder / "ledger.json", seen)
+                row["environment"] = env
                 print(json.dumps(row), flush=True)
                 if name == "remote-warm":
                     stack.stop(f"trial{trial}")
