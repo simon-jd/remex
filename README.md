@@ -15,6 +15,34 @@ and it is written to the action cache only after the scheduler has found
 every output blob in the CAS. And a slow or failing component costs time,
 not lost work.
 
+**End-to-end build.** `scripts/benchmark-cpu.py` builds and tests
+`samples/cpp-history` (`//:math_test` and `//:abseil_test`: 90 compile, link
+and test actions) from `bazel clean`, locally and through remex. PostgreSQL,
+bazel-remote, the scheduler, four CPU workers and Bazel all run on the same
+four cores (one thread on each of four P-cores), and local builds use four
+jobs. Cold builds start from an empty cache, warm builds reuse it, and every
+build reruns the tests. Five trials (`results/cpu-build.jsonl`, commit
+3f8873f); median wall time with the range:
+
+| Build | Cold | Warm |
+|---|---|---|
+| Local Bazel, disk cache | 6.5 s (6.2–7.3) | 3.6 s (3.3–3.7) |
+| Through remex and bazel-remote | 11.3 s (10.9–12.9) | 3.8 s (3.5–4.5) |
+
+- **Cold remote builds take 1.7 times as long.** The ledger shows the 90
+  executions busy on workers for 15–22 s in all, while the scheduler's span
+  from the first execution to the last commit was 7.6–9.3 s: the four
+  workers were busy 50–59% of it. The median execution waited 67–89 ms
+  for a lease, because an idle worker polls Lease every 500 ms rather than
+  holding a long poll. The other 3.2–3.6 s of wall time are outside that span:
+  Bazel's own work after the clean, uploading inputs before the first action
+  and downloading outputs after the last.
+- **Warm builds** hit the cache for all 88 compile and link actions and run
+  only the two tests remotely; each of those waited 97–194 ms for a lease.
+- All 20 builds produced identical test binaries. It is one small workspace
+  on one host, with the workers sharing the client's cores; it does not say
+  how remex behaves on a cluster.
+
 **Control plane under load.** `cmd/remex-loadtest` drives the scheduler in
 process: 64 synthetic workers loop Lease → Heartbeat → Complete against a
 ledger that already holds 0–5,000 finished executions, while a probe worker
@@ -298,9 +326,9 @@ scripts/bazel-sample.sh cpp-history   # in another terminal: a remote Bazel buil
   no authentication and no sandbox; the deployment is for one trusted team.
 - **Workers.** One action per worker process. The CAS client issues one
   request per blob, so a cold remote build pays a round trip per blob, and
-  each worker keeps its own unbounded blob cache. `scripts/benchmark-cpu.py`
-  compares cold and warm remote builds with local ones on one host; no
-  results from it are included.
+  each worker keeps its own unbounded blob cache. An idle worker polls
+  Lease every 500 ms, so work that arrives while workers are idle waits
+  for the next poll (67–89 ms at the median in the cold builds above).
 - **Failure signature.** Classification uses a `REMEX_SIGNATURE:` line or the
   digest of the whole test log. Real logs with timestamps need a
   normalising signature to bisect.
