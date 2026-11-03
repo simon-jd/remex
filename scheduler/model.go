@@ -72,7 +72,11 @@ type Ledger struct {
 	SchemaVersion int          `json:"schema_version"`
 	Executions    []*Execution `json:"executions"`
 	Attempts      []*Attempt   `json:"attempts"`
-	Events        []Event      `json:"events"`
+	// Events of a ledger that was loaded, exported or built by hand. Events
+	// that commits append go to history, after these, so a long ledger is
+	// never copied to grow; clone returns all of them here.
+	Events  []Event `json:"events"`
+	history eventLog
 
 	// Positions by ID, rebuilt whenever a lookup finds them stale (tests and
 	// stores may edit the slices directly). First occurrence wins.
@@ -119,6 +123,7 @@ func cloneAttempt(a *Attempt) *Attempt {
 func (l *Ledger) clone() *Ledger {
 	c := *l
 	c.executionIndex, c.attemptIndex = nil, nil
+	c.history = eventLog{}
 	if l.Executions != nil {
 		c.Executions = make([]*Execution, len(l.Executions))
 		for i, e := range l.Executions {
@@ -135,17 +140,23 @@ func (l *Ledger) clone() *Ledger {
 			}
 		}
 	}
-	if l.Events != nil {
-		c.Events = make([]Event, len(l.Events))
-		for i, event := range l.Events {
-			c.Events[i] = event
-			if event.Details != nil {
-				c.Events[i].Details = cloneDetails(event.Details)
+	if l.Events != nil || l.history.len() > 0 {
+		c.Events = make([]Event, 0, l.eventCount())
+		for _, events := range append([][]Event{l.Events}, l.history.chunks...) {
+			for _, event := range events {
+				if event.Details != nil {
+					event.Details = cloneDetails(event.Details)
+				}
+				c.Events = append(c.Events, event)
 			}
 		}
 	}
 	return &c
 }
+
+// eventCount is the number of events in the ledger, which is also the
+// sequence number of the last one.
+func (l *Ledger) eventCount() int { return len(l.Events) + l.history.len() }
 func cloneDetails(details map[string]any) map[string]any {
 	out := make(map[string]any, len(details))
 	for k, v := range details {
@@ -231,7 +242,7 @@ func (l *Ledger) attempt(id string) *Attempt {
 }
 
 // apply installs a committed change: replaced rows take their old position,
-// new rows are appended in order, and events are appended.
+// new rows are appended in order, and events are appended to history.
 func (l *Ledger) apply(c *Change) {
 	for _, e := range c.Executions {
 		if l.execution(e.ID) != nil {
@@ -249,7 +260,7 @@ func (l *Ledger) apply(c *Change) {
 		l.attemptIndex[a.ID] = len(l.Attempts)
 		l.Attempts = append(l.Attempts, a)
 	}
-	l.Events = append(l.Events, c.Events...)
+	l.history.append(c.Events)
 }
 
 // tx stages one mutation. A row is copied the first time the transaction
@@ -305,14 +316,22 @@ func (t *tx) addAttempt(a *Attempt) {
 func (t *tx) event(now time.Time, kind string, e *Execution, a *Attempt, details map[string]any) {
 	t.change.Events = append(
 		t.change.Events,
-		newEvent(int64(len(t.l.Events)+len(t.change.Events)+1), now, kind, e, a, details),
+		newEvent(int64(t.l.eventCount()+len(t.change.Events)+1), now, kind, e, a, details),
 	)
 }
 func (t *tx) empty() bool {
 	return len(t.change.Executions) == 0 && len(t.change.Attempts) == 0 && len(t.change.Events) == 0
 }
+
+// event appends one event, for tests that build a ledger by hand. It stays
+// in Events until a commit has appended to history, so the order holds.
 func (l *Ledger) event(now time.Time, kind string, e *Execution, a *Attempt, details map[string]any) {
-	l.Events = append(l.Events, newEvent(int64(len(l.Events)+1), now, kind, e, a, details))
+	ev := newEvent(int64(l.eventCount()+1), now, kind, e, a, details)
+	if l.history.len() > 0 {
+		l.history.append([]Event{ev})
+		return
+	}
+	l.Events = append(l.Events, ev)
 }
 func newEvent(sequence int64, now time.Time, kind string, e *Execution, a *Attempt, details map[string]any) Event {
 	ev := Event{Sequence: sequence, Time: now.UTC(), Kind: kind, Details: details}
@@ -361,7 +380,7 @@ func (m *MemoryStore) Save(_ context.Context, c *Change) error {
 	if m.SaveError != nil {
 		return m.SaveError
 	}
-	if err := checkSequence(int64(len(m.ledger.Events)), c.Events); err != nil {
+	if err := checkSequence(int64(m.ledger.eventCount()), c.Events); err != nil {
 		return err
 	}
 	copied := &Change{Events: slices.Clone(c.Events)}

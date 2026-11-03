@@ -71,8 +71,9 @@ type Scheduler struct {
 	graceQueued   map[string]bool
 	failure       chan error
 	failed        error
-	// Written under mu, read without it by EventLog.
-	eventCount, eventGrowths atomic.Int64
+	// The ledger's event count, written under mu and read without it by
+	// EventCount.
+	events atomic.Int64
 }
 
 func New(ctx context.Context, store Store, cache Cache, cfg Config) (*Scheduler, error) {
@@ -158,12 +159,9 @@ func (s *Scheduler) Close() { s.log.close() }
 // transactions made them durable.
 func (s *Scheduler) CommitStats() (changes, writes int) { return s.log.stats() }
 
-// EventLog reports the length of the in-memory event log and how many times
-// a commit has reallocated it, copying the whole log under the lock. It does
-// not take the lock, so a caller timing other calls does not queue on it.
-func (s *Scheduler) EventLog() (length, reallocations int64) {
-	return s.eventCount.Load(), s.eventGrowths.Load()
-}
+// EventCount reports how many events the in-memory ledger holds. It does not
+// take the lock, so a caller timing other calls does not queue on it.
+func (s *Scheduler) EventCount() int64 { return s.events.Load() }
 func newID(prefix string) string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -183,12 +181,8 @@ func (s *Scheduler) commit(_ context.Context, t *tx) error {
 	if t.empty() {
 		return nil
 	}
-	capacity := cap(s.ledger.Events)
 	s.ledger.apply(&t.change)
-	if cap(s.ledger.Events) != capacity {
-		s.eventGrowths.Add(1)
-	}
-	s.eventCount.Store(int64(len(s.ledger.Events)))
+	s.events.Store(int64(s.ledger.eventCount()))
 	s.log.append(&t.change)
 	for _, e := range t.change.Executions {
 		if ch, ok := s.waiters[e.ID]; ok {

@@ -5,35 +5,29 @@ import (
 	"sort"
 )
 
-// slowHeartbeat is one probe heartbeat that took over 10 ms. EventGrowth
-// reports that a commit reallocated the scheduler's event log while it
-// waited; GCCycles counts the GC cycles that ended in the same interval.
-// Neither read takes the scheduler lock.
+// slowHeartbeat is one probe heartbeat that took over 10 ms. GCCycles
+// counts the GC cycles that ended while it waited; reading it does not take
+// the scheduler lock.
 type slowHeartbeat struct {
-	MS          float64 `json:"ms"`
-	AtS         float64 `json:"at_s"`
-	Completed   int64   `json:"completed"`
-	Events      int64   `json:"ledger_events"`
-	EventGrowth bool    `json:"event_log_grew"`
-	GCCycles    uint64  `json:"gc_cycles"`
+	MS        float64 `json:"ms"`
+	AtS       float64 `json:"at_s"`
+	Completed int64   `json:"completed"`
+	Events    int64   `json:"ledger_events"`
+	GCCycles  uint64  `json:"gc_cycles"`
 }
 
 func summarizeSlow(slow []slowHeartbeat) map[string]any {
-	grew, gc := 0, 0
+	gc := 0
 	for _, h := range slow {
-		if h.EventGrowth {
-			grew++
-		}
 		if h.GCCycles > 0 {
 			gc++
 		}
 	}
 	sort.Slice(slow, func(i, j int) bool { return slow[i].MS > slow[j].MS })
 	return map[string]any{
-		"over_10ms":           len(slow),
-		"during_event_growth": grew,
-		"during_gc":           gc,
-		"slowest":             slow[:min(len(slow), 5)],
+		"over_10ms": len(slow),
+		"during_gc": gc,
+		"slowest":   slow[:min(len(slow), 5)],
 	}
 }
 

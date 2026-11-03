@@ -316,7 +316,7 @@ func (s *Scheduler) auditContext(ctx context.Context, e *Execution, a *Attempt) 
 	md.Set("x-remex-execution-id", e.ID)
 	md.Set("x-remex-attempt-id", a.ID)
 	md.Set("x-remex-epoch", strconv.FormatInt(a.Epoch, 10))
-	md.Set("x-remex-ledger-sequence", strconv.Itoa(len(s.ledger.Events)))
+	md.Set("x-remex-ledger-sequence", strconv.Itoa(s.ledger.eventCount()))
 	return metadata.NewOutgoingContext(ctx, md)
 }
 

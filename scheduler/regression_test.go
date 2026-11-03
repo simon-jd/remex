@@ -212,7 +212,7 @@ func TestAuditContextReplacesStaleCorrelationMetadata(t *testing.T) {
 	updated := f.s.auditContext(ctx, e, a)
 	f.s.ledger.event(f.now, "test_boundary", e, a, nil)
 	updated = f.s.auditContext(updated, e, a)
-	wantSequence := len(f.s.ledger.Events)
+	wantSequence := f.s.ledger.eventCount()
 	f.s.mu.Unlock()
 	md, _ := metadata.FromOutgoingContext(updated)
 	for key, want := range map[string]string{
