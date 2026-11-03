@@ -14,7 +14,8 @@ remote workers, so both sides get the same CPUs.
 
 Prints one JSON line per build; remote builds also summarize the scheduler's
 ledger (see ledger_summary). The output directory keeps every log, BEP
-file, execution log and ledger.
+file, execution log and ledger; --summarize OUTPUT prints the ledger
+summaries of an earlier run again, with as many --jobs as it had.
 """
 import argparse
 import datetime
@@ -54,25 +55,52 @@ def runner_counts(bep):
     return None, {}
 
 
-def ledger_summary(path, seen):
+# Ledger events that bound each phase of a remote action.
+PHASES = {
+    "queued": ("execution_created", "lease_granted"),  # waiting for a worker to lease it
+    "materialize": ("lease_granted", "command_started"),  # inputs from the CAS, attempt setup
+    "run": ("command_started", "uploading"),  # the command itself
+    "upload": ("uploading", "attempt_committed"),  # outputs to the CAS, their check, the commit
+}
+
+
+def ledger_summary(path, seen, workers):
     """Where a remote build's actions spent their time, from the scheduler's
     ledger: executions this build created (not in seen), their median wait
     from creation to lease, the span from the first creation to the last
-    commit, and the summed lease-to-commit time over all workers."""
+    commit, the summed lease-to-commit time over all workers, and for each
+    phase in PHASES its total over the executions and its median.
+    queued_with_idle_worker_s is the queued time during which at least as
+    many of the workers held no lease as there were executions queued: time
+    the work waited although a worker was free to run it."""
     def at(event):
         return datetime.datetime.fromisoformat(event["time"].replace("Z", "+00:00")).timestamp()
-    created, leased, committed = {}, {}, {}
+    times = {}
     for event in json.loads(path.read_text())["events"]:
-        target = {"execution_created": created, "lease_granted": leased, "attempt_committed": committed}.get(event["kind"])
-        if target is not None and event["execution_id"] not in seen:
-            target[event["execution_id"]] = at(event)
+        if event["kind"] in {kind for phase in PHASES.values() for kind in phase} and event["execution_id"] not in seen:
+            times.setdefault(event["execution_id"], {}).setdefault(event["kind"], at(event))
+    created = {x: t["execution_created"] for x, t in times.items() if "execution_created" in t}
     seen.update(created)
-    if not created or set(created) != set(committed):
+    if not created or any("attempt_committed" not in times[x] for x in created):
         return dict(executions=len(created), complete=False)
+    leased = {x: times[x]["lease_granted"] for x in created}
+    committed = {x: times[x]["attempt_committed"] for x in created}
+    phases = {}
+    for name, (start, end) in PHASES.items():
+        spans = [times[x][end] - times[x][start] for x in created]
+        phases[name] = dict(total_s=round(sum(spans), 2), median_ms=round(statistics.median(spans) * 1000, 1))
+    changes = sorted([(t, 1, 0) for t in created.values()] + [(t, -1, 1) for t in leased.values()] +
+                     [(t, 0, -1) for t in committed.values()])
+    queued = busy = 0
+    idle_wait, last = 0.0, changes[0][0]
+    for t, queue_change, busy_change in changes:
+        idle_wait += (t - last) * min(queued, max(workers - busy, 0))
+        queued, busy, last = queued + queue_change, busy + busy_change, t
     return dict(executions=len(created), complete=True,
                 queued_ms_median=round(statistics.median(leased[x] - created[x] for x in created) * 1000, 1),
                 scheduler_span_s=round(max(committed.values()) - min(created.values()), 2),
-                worker_busy_s=round(sum(committed[x] - leased[x] for x in created), 2))
+                worker_busy_s=round(sum(committed[x] - leased[x] for x in created), 2),
+                phases=phases, queued_with_idle_worker_s=round(idle_wait, 2))
 
 
 def environment(cores, jobs):
@@ -144,13 +172,30 @@ class RemoteStack:
         run(self.compose + ["down", "-v"], self.out / f"{tag}-compose-down.log", env=self.env, check=False)
 
 
+def summarize(out, workers):
+    trials = sorted(int(folder.name[len("trial"):-len("-remote-cold")]) for folder in out.glob("trial*-remote-cold"))
+    for trial in trials:
+        seen = set()
+        for name in ("remote-cold", "remote-warm"):
+            ledger = out / f"trial{trial}-{name}" / "ledger.json"
+            if ledger.is_file():
+                print(json.dumps(dict(trial=trial, build=name, ledger=ledger_summary(ledger, seen, workers))), flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--cores", default="8,9,10")
     parser.add_argument("--jobs", type=int, default=3, help="local jobs and remote workers")
     parser.add_argument("--trials", type=int, default=1)
-    parser.add_argument("--output", type=pathlib.Path, required=True)
+    parser.add_argument("--output", type=pathlib.Path)
+    parser.add_argument("--summarize", type=pathlib.Path, metavar="OUTPUT",
+                        help="print the ledger summary of every remote build in an earlier --output directory and exit")
     args = parser.parse_args()
+    if args.summarize:
+        summarize(args.summarize, args.jobs)
+        return
+    if not args.output:
+        parser.error("--output is required")
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
     uid = os.getuid()
@@ -198,7 +243,7 @@ def main():
                     seen = set()
                 if name.startswith("remote"):
                     stack.ledger(folder / "ledger.json")
-                    row["ledger"] = ledger_summary(folder / "ledger.json", seen)
+                    row["ledger"] = ledger_summary(folder / "ledger.json", seen, args.jobs)
                 row["environment"] = env
                 print(json.dumps(row), flush=True)
                 if name == "remote-warm":
