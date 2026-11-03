@@ -19,6 +19,7 @@ using Clock = std::chrono::steady_clock;
 namespace {
 volatile sig_atomic_t shutting_down = 0;
 void Signal(int) { shutting_down = 1; }
+constexpr std::chrono::milliseconds kLongestLeaseWait(1000);
 google::protobuf::Timestamp TimestampNow() {
   const auto elapsed = std::chrono::system_clock::now().time_since_epoch();
   return google::protobuf::util::TimeUtil::NanosecondsToTimestamp(
@@ -390,15 +391,22 @@ int Main(int argc, char** argv) {
     request.set_worker_id(config.id);
     request.set_device_snapshot_json(device.json);
     for (const auto& [key, value] : device.properties) (*request.mutable_properties())[key] = value;
+    // A scheduler that can hold an idle Lease answers as soon as work is
+    // queued for this worker. The worker asks for at most a second, so a
+    // stop request waiting behind the call is still seen within one.
+    const auto wait = std::chrono::milliseconds(
+        std::min<std::int64_t>(registered.lease_wait_ms(), kLongestLeaseWait.count()));
+    request.set_wait_ms(wait.count());
     w::LeaseResponse lease;
     grpc::ClientContext context;
-    ControlRpc(context);
+    ControlRpc(context, std::chrono::seconds(5) + wait);
     const auto lease_start = Clock::now();
     const auto status = stub->Lease(&context, request, &lease);
     if (status.error_code() == grpc::StatusCode::FAILED_PRECONDITION)
       return PollOutcome::RegistrationRequired;
     CheckControlRpc(status, "Lease RPC");
-    if (!lease.available()) return PollOutcome::Idle;
+    if (!lease.available())
+      return wait.count() > 0 ? PollOutcome::IdleAfterWait : PollOutcome::Idle;
     try {
       Attempt(*stub, config, lease, device, lease_start, registered.heartbeat_interval_ms());
     } catch (const std::exception& error) {

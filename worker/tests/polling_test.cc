@@ -137,6 +137,22 @@ void SchedulerOutageIsRetriedEverySecond() {
   Require(f.delays == std::vector<long long>{500, 1000, 1000, 1000, 1000},
           "scheduler retries must stay at or below 1 s");
 }
+void LongPollRepeatsWithoutPause() {
+  Fixture f;
+  f.hooks.lease = [&](const DeviceSnapshot& device) {
+    ++f.leases;
+    f.leased.push_back(device.json);
+    if (f.leases <= 2) return PollOutcome::IdleAfterWait;  // the scheduler held each call
+    if (f.leases == 3) return PollOutcome::Idle;           // an older scheduler answered at once
+    f.stopped = true;
+    return PollOutcome::AttemptFinished;
+  };
+  RunPollingLoop(false, f.hooks);
+  Require(f.leased == std::vector<std::string>{"probe-2", "probe-3", "probe-4", "probe-5"},
+          "every lease after a long poll must carry a fresh probe");
+  Require(f.delays == std::vector<long long>{500},
+          "only a lease the scheduler answered at once may be followed by a pause");
+}
 void OnceDoesNotHideFailure() {
   for (bool probe_failure : {true, false}) {
     Fixture f;
@@ -189,10 +205,11 @@ int main() {
     SchedulerRestartTriggersReregistration();
     RepeatedRegistrationRequestsBackOff();
     SchedulerOutageIsRetriedEverySecond();
+    LongPollRepeatsWithoutPause();
     OnceDoesNotHideFailure();
     PermanentRegistrationFailureAndShutdown();
     std::cout << "PASS polling recovery, fresh identity gating, bounded backoff, startup/restart "
-                 "registration, fail-fast and shutdown\n";
+                 "registration, long polls, fail-fast and shutdown\n";
     return 0;
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

@@ -13,9 +13,23 @@ service WorkerService {
 }
 message Digest { string hash = 1; int64 size_bytes = 2; }
 message RegisterRequest { string worker_id = 1; map<string,string> properties = 2; string device_snapshot_json = 3; }
-message RegisterResponse { int64 lease_duration_ms = 1; int64 heartbeat_interval_ms = 2; }
+message RegisterResponse {
+  int64 lease_duration_ms = 1;
+  int64 heartbeat_interval_ms = 2;
+  // The longest the scheduler holds a Lease that has no work for the worker
+  // (LeaseRequest.wait_ms is capped at it). Older schedulers send 0: they
+  // answer every Lease at once, so the worker must pause between idle polls.
+  int64 lease_wait_ms = 3;
+}
 // Properties are freshly verified by the worker before every Lease RPC.
-message LeaseRequest { string worker_id = 1; map<string,string> properties = 2; string device_snapshot_json = 3; }
+message LeaseRequest {
+  string worker_id = 1;
+  map<string,string> properties = 2;
+  string device_snapshot_json = 3;
+  // How long the scheduler may hold the call while it has no work for this
+  // worker, so that work queued meanwhile is leased at once. 0 answers at once.
+  int64 wait_ms = 4;
+}
 message LeaseResponse {
   bool available = 1;
   string execution_id = 2;

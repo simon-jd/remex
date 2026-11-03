@@ -63,6 +63,7 @@ void RunPollingLoop(bool once, const PollingHooks& hooks) {
       backoff = std::chrono::milliseconds(500);
       if (once && outcome == PollOutcome::AttemptFinished) return;
       if (outcome == PollOutcome::Idle) hooks.wait(std::chrono::milliseconds(500));
+      // After IdleAfterWait the scheduler has already waited for work.
     } catch (const RetryableError& error) {
       if (once) throw;
       const auto limit = probing ? maximum : scheduler_maximum;

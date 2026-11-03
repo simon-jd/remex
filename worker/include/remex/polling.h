@@ -8,7 +8,10 @@ namespace remex {
 struct RetryableError : Error {
   using Error::Error;
 };
-enum class PollOutcome { Idle, AttemptFinished, RegistrationRequired };
+// Idle: the scheduler had no work and answered at once, so the worker pauses
+// before it polls again. IdleAfterWait: the scheduler held the call while it
+// had no work, so the worker polls again at once.
+enum class PollOutcome { Idle, IdleAfterWait, AttemptFinished, RegistrationRequired };
 struct PollingHooks {
   std::function<DeviceSnapshot()> probe;
   std::function<void(const DeviceSnapshot&)> register_worker;

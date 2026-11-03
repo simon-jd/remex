@@ -30,8 +30,12 @@ import (
 type Config struct {
 	CASEndpoint                  string
 	LeaseDuration, RecoveryGrace time.Duration
-	MaxAttempts                  int
-	Now                          func() time.Time
+	// LeaseWait is the longest a Lease that asks to wait is held while there
+	// is no work for its worker; by default a third of LeaseDuration, the
+	// heartbeat interval, so an idle worker still calls in that often.
+	LeaseWait   time.Duration
+	MaxAttempts int
+	Now         func() time.Time
 }
 type workerInfo struct {
 	properties map[string]string
@@ -71,6 +75,9 @@ type Scheduler struct {
 	graceQueued   map[string]bool
 	failure       chan error
 	failed        error
+	// workReady is closed, then cleared, when a commit makes an execution
+	// runnable. A Lease that waits for work creates it and waits on it.
+	workReady chan struct{}
 	// The ledger's event count, written under mu and read without it by
 	// EventCount.
 	events atomic.Int64
@@ -82,6 +89,9 @@ func New(ctx context.Context, store Store, cache Cache, cfg Config) (*Scheduler,
 	}
 	if cfg.RecoveryGrace <= 0 {
 		cfg.RecoveryGrace = cfg.LeaseDuration
+	}
+	if cfg.LeaseWait <= 0 {
+		cfg.LeaseWait = cfg.LeaseDuration / 3
 	}
 	if cfg.MaxAttempts <= 0 {
 		cfg.MaxAttempts = 3
@@ -210,10 +220,32 @@ func (s *Scheduler) storeFailed(err error) {
 	case s.failure <- err:
 	default:
 	}
-	// Every stream must observe the failure, not only changed ones.
+	// Every stream must observe the failure, not only changed ones, and no
+	// Lease may keep waiting for work.
 	for id, ch := range s.waiters {
 		close(ch)
 		delete(s.waiters, id)
+	}
+	s.workArrivedLocked()
+}
+
+// workReadyLocked returns a channel that is closed when a commit next makes
+// an execution runnable, or nil once the scheduler has failed.
+func (s *Scheduler) workReadyLocked() <-chan struct{} {
+	if s.failed != nil {
+		return nil
+	}
+	if s.workReady == nil {
+		s.workReady = make(chan struct{})
+	}
+	return s.workReady
+}
+
+// workArrivedLocked wakes every Lease waiting for work.
+func (s *Scheduler) workArrivedLocked() {
+	if s.workReady != nil {
+		close(s.workReady)
+		s.workReady = nil
 	}
 }
 
@@ -258,6 +290,7 @@ func (s *Scheduler) indexExecution(e *Execution) {
 	if runnable && !s.runnable[e.ID] {
 		s.ledger.execution(e.ID) // keeps the index current
 		s.queues.push(e, s.ledger.executionIndex[e.ID])
+		s.workArrivedLocked()
 	}
 	setIf(s.runnable, e.ID, runnable)
 	key := inflightKey(e)
@@ -593,12 +626,48 @@ func (s *Scheduler) Register(_ context.Context, r *w.RegisterRequest) (*w.Regist
 	return &w.RegisterResponse{
 		LeaseDurationMs:     s.cfg.LeaseDuration.Milliseconds(),
 		HeartbeatIntervalMs: s.cfg.LeaseDuration.Milliseconds() / 3,
+		LeaseWaitMs:         s.cfg.LeaseWait.Milliseconds(),
 	}, nil
 }
-func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseResponse, err error) {
+
+// Lease grants the worker the oldest runnable execution it can serve. With
+// none, a request with wait_ms is held, without the lock, until a commit
+// makes some execution runnable, and Lease looks again; it answers with no
+// work once the wait, capped at Config.LeaseWait, is over. A worker that
+// long-polls this way is leased new work as soon as it is queued, rather
+// than at its next poll.
+func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (*w.LeaseResponse, error) {
 	if err := validWorker(r.WorkerId, r.Properties, r.DeviceSnapshotJson); err != nil {
 		return nil, err
 	}
+	wait := min(time.Duration(r.WaitMs)*time.Millisecond, s.cfg.LeaseWait)
+	var timeout <-chan time.Time
+	for {
+		lease, ready, err := s.leaseOnce(ctx, r)
+		if err != nil || lease.Available || wait <= 0 {
+			return lease, err
+		}
+		if ready == nil {
+			return nil, status.Error(codes.Unavailable, "scheduler stopped after a failed ledger write")
+		}
+		if timeout == nil {
+			timer := time.NewTimer(wait)
+			defer timer.Stop()
+			timeout = timer.C
+		}
+		select {
+		case <-ready:
+		case <-timeout:
+			return lease, nil
+		case <-ctx.Done():
+			return nil, status.FromContextError(ctx.Err()).Err()
+		}
+	}
+}
+
+// leaseOnce is one locked look for work. Without any, it returns an empty
+// lease and the channel to wait on for more.
+func (s *Scheduler) leaseOnce(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseResponse, ready <-chan struct{}, err error) {
 	// Only a granted lease must wait for the log: an empty answer tells the
 	// worker nothing that a lost change could contradict.
 	seen := noWait
@@ -606,12 +675,12 @@ func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseRes
 	s.mu.Lock()
 	defer s.release(&seen)
 	if _, ok := s.workers[r.WorkerId]; !ok {
-		return nil, status.Error(codes.FailedPrecondition, "register worker first")
+		return nil, nil, status.Error(codes.FailedPrecondition, "register worker first")
 	}
 	now := s.cfg.Now()
 	s.workers[r.WorkerId] = workerInfo{copyProps(r.Properties), r.DeviceSnapshotJson, now.Add(2 * s.cfg.LeaseDuration)}
 	if err := s.expireLocked(ctx, now); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// One attempt per worker: only live attempts have deadlines.
 	for id, deadline := range s.deadlines.worker(r.WorkerId) {
@@ -621,7 +690,7 @@ func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseRes
 		}
 		e := s.ledger.execution(a.ExecutionID)
 		if a.Epoch == e.CurrentEpoch && !terminal(e) {
-			return &w.LeaseResponse{}, nil
+			return &w.LeaseResponse{}, s.workReadyLocked(), nil
 		}
 	}
 	runnable := func(position int) bool { return s.runnable[s.ledger.Executions[position].ID] }
@@ -651,7 +720,7 @@ func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseRes
 			map[string]any{"worker_platform": a.WorkerPlatform, "device_verified": a.DeviceVerified},
 		)
 		if err := s.commit(ctx, t); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		seen = 0
 		s.deadlines.set(a.ID, a.WorkerID, now.Add(s.cfg.LeaseDuration))
@@ -667,9 +736,9 @@ func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (_ *w.LeaseRes
 			Command:         e.Command,
 			CasEndpoint:     s.cfg.CASEndpoint,
 			QueuedTimestamp: timestamppb.New(e.CreatedAt),
-		}, nil
+		}, nil, nil
 	}
-	return &w.LeaseResponse{}, nil
+	return &w.LeaseResponse{}, s.workReadyLocked(), nil
 }
 func (s *Scheduler) fence(worker, id string, epoch int64, now time.Time) (*Attempt, *Execution, bool) {
 	a := s.ledger.attempt(id)

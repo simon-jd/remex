@@ -285,8 +285,12 @@ type RegisterResponse struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	LeaseDurationMs     int64                  `protobuf:"varint,1,opt,name=lease_duration_ms,json=leaseDurationMs,proto3" json:"lease_duration_ms,omitempty"`
 	HeartbeatIntervalMs int64                  `protobuf:"varint,2,opt,name=heartbeat_interval_ms,json=heartbeatIntervalMs,proto3" json:"heartbeat_interval_ms,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// The longest the scheduler holds a Lease that has no work for the worker
+	// (LeaseRequest.wait_ms is capped at it). Older schedulers send 0: they
+	// answer every Lease at once, so the worker must pause between idle polls.
+	LeaseWaitMs   int64 `protobuf:"varint,3,opt,name=lease_wait_ms,json=leaseWaitMs,proto3" json:"lease_wait_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisterResponse) Reset() {
@@ -333,14 +337,24 @@ func (x *RegisterResponse) GetHeartbeatIntervalMs() int64 {
 	return 0
 }
 
+func (x *RegisterResponse) GetLeaseWaitMs() int64 {
+	if x != nil {
+		return x.LeaseWaitMs
+	}
+	return 0
+}
+
 // Properties are freshly verified by the worker before every Lease RPC.
 type LeaseRequest struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	WorkerId           string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
 	Properties         map[string]string      `protobuf:"bytes,2,rep,name=properties,proto3" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	DeviceSnapshotJson string                 `protobuf:"bytes,3,opt,name=device_snapshot_json,json=deviceSnapshotJson,proto3" json:"device_snapshot_json,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// How long the scheduler may hold the call while it has no work for this
+	// worker, so that work queued meanwhile is leased at once. 0 answers at once.
+	WaitMs        int64 `protobuf:"varint,4,opt,name=wait_ms,json=waitMs,proto3" json:"wait_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *LeaseRequest) Reset() {
@@ -392,6 +406,13 @@ func (x *LeaseRequest) GetDeviceSnapshotJson() string {
 		return x.DeviceSnapshotJson
 	}
 	return ""
+}
+
+func (x *LeaseRequest) GetWaitMs() int64 {
+	if x != nil {
+		return x.WaitMs
+	}
+	return 0
 }
 
 type LeaseResponse struct {
@@ -843,16 +864,18 @@ const file_api_worker_v1_worker_proto_rawDesc = "" +
 	"\x14device_snapshot_json\x18\x03 \x01(\tR\x12deviceSnapshotJson\x1a=\n" +
 	"\x0fPropertiesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"r\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x96\x01\n" +
 	"\x10RegisterResponse\x12*\n" +
 	"\x11lease_duration_ms\x18\x01 \x01(\x03R\x0fleaseDurationMs\x122\n" +
-	"\x15heartbeat_interval_ms\x18\x02 \x01(\x03R\x13heartbeatIntervalMs\"\xeb\x01\n" +
+	"\x15heartbeat_interval_ms\x18\x02 \x01(\x03R\x13heartbeatIntervalMs\x12\"\n" +
+	"\rlease_wait_ms\x18\x03 \x01(\x03R\vleaseWaitMs\"\x84\x02\n" +
 	"\fLeaseRequest\x12\x1b\n" +
 	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12M\n" +
 	"\n" +
 	"properties\x18\x02 \x03(\v2-.remex.worker.v1.LeaseRequest.PropertiesEntryR\n" +
 	"properties\x120\n" +
-	"\x14device_snapshot_json\x18\x03 \x01(\tR\x12deviceSnapshotJson\x1a=\n" +
+	"\x14device_snapshot_json\x18\x03 \x01(\tR\x12deviceSnapshotJson\x12\x17\n" +
+	"\await_ms\x18\x04 \x01(\x03R\x06waitMs\x1a=\n" +
 	"\x0fPropertiesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb0\x03\n" +
