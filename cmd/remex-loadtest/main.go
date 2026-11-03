@@ -13,8 +13,10 @@
 // that deep and every Lease has to find its work behind it.
 //
 // To explain the slowest heartbeats, each record also reports Go's GC
-// cycles and stop-the-world pauses during the window, and for every probe
-// heartbeat over 10 ms whether a GC cycle ended while it waited.
+// cycles and stop-the-world pauses during the window, how many probe
+// heartbeats overlapped a GC mark, and for every probe heartbeat over 10 ms
+// whether a GC cycle was marking and how many goroutines were blocked on a
+// lock while it waited.
 //
 // Each record also carries the host, Go and PostgreSQL environment and the
 // -commit it was given. It uses only the scheduler's exported API.
@@ -213,7 +215,7 @@ func main() {
 	var slow []slowHeartbeat
 	var completed atomic.Int64
 	var windowStart atomic.Int64 // UnixNano when the workers started
-	probeLost := false
+	probeLost, probeDuringMark := false, 0
 	var probeDone sync.WaitGroup
 	probeDone.Add(1)
 	go func() {
@@ -225,7 +227,7 @@ func main() {
 				return
 			case <-time.After(100 * time.Millisecond):
 			}
-			gcBefore := gcCycles()
+			before := readRuntime()
 			started := time.Now()
 			r, err := s.Heartbeat(
 				ctx,
@@ -237,14 +239,21 @@ func main() {
 				},
 			)
 			took := time.Since(started)
+			after := readRuntime()
 			probe = append(probe, took)
+			marking := gcMarkBetween(before, after)
+			if marking {
+				probeDuringMark++
+			}
 			if took > 10*time.Millisecond {
 				slow = append(slow, slowHeartbeat{
-					MS:        float64(took.Microseconds()) / 1000,
-					AtS:       time.Duration(started.UnixNano() - windowStart.Load()).Seconds(),
-					Completed: completed.Load(),
-					Events:    s.EventCount(),
-					GCCycles:  gcCycles() - gcBefore,
+					MS:           float64(took.Microseconds()) / 1000,
+					AtS:          time.Duration(started.UnixNano() - windowStart.Load()).Seconds(),
+					Completed:    completed.Load(),
+					Events:       s.EventCount(),
+					GCMark:       marking,
+					GCCycles:     after.cycles - before.cycles,
+					MutexWaiters: (after.mutexWait - before.mutexWait) / took.Seconds(),
 				})
 			}
 			if err != nil {
@@ -323,8 +332,11 @@ func main() {
 		},
 		"heartbeats":         len(probe),
 		"heartbeats_over_1s": over,
-		"attempts_lost":      h.lost.Load(),
-		"probe_lost":         probeLost,
+		// Probe heartbeats that overlapped a GC mark: the base rate for
+		// slow_heartbeats.during_gc_mark.
+		"heartbeats_during_gc_mark": probeDuringMark,
+		"attempts_lost":             h.lost.Load(),
+		"probe_lost":                probeLost,
 		// Ledger changes per store transaction: the group-commit batch size.
 		"changes_per_write": float64(changesAfter-changesBefore) / float64(max(writesAfter-writesBefore, 1)),
 		"ledger_events":     events,

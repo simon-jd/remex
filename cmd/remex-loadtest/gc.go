@@ -5,36 +5,69 @@ import (
 	"sort"
 )
 
-// slowHeartbeat is one probe heartbeat that took over 10 ms. GCCycles
-// counts the GC cycles that ended while it waited; reading it does not take
-// the scheduler lock.
+// slowHeartbeat is one probe heartbeat that took over 10 ms. GCMark reports
+// that a GC cycle was marking at some point while it waited, and GCCycles
+// counts the cycles that ended meanwhile. MutexWaiters is the mean number of
+// goroutines blocked on a lock while it waited, from the runtime's sampled
+// total, so it is approximate. None of these reads takes the scheduler lock.
 type slowHeartbeat struct {
-	MS        float64 `json:"ms"`
-	AtS       float64 `json:"at_s"`
-	Completed int64   `json:"completed"`
-	Events    int64   `json:"ledger_events"`
-	GCCycles  uint64  `json:"gc_cycles"`
+	MS           float64 `json:"ms"`
+	AtS          float64 `json:"at_s"`
+	Completed    int64   `json:"completed"`
+	Events       int64   `json:"ledger_events"`
+	GCMark       bool    `json:"gc_mark"`
+	GCCycles     uint64  `json:"gc_cycles"`
+	MutexWaiters float64 `json:"mutex_waiters"`
 }
 
 func summarizeSlow(slow []slowHeartbeat) map[string]any {
-	gc := 0
+	marking, gc := 0, 0
 	for _, h := range slow {
+		if h.GCMark {
+			marking++
+		}
 		if h.GCCycles > 0 {
 			gc++
 		}
 	}
 	sort.Slice(slow, func(i, j int) bool { return slow[i].MS > slow[j].MS })
 	return map[string]any{
-		"over_10ms": len(slow),
-		"during_gc": gc,
-		"slowest":   slow[:min(len(slow), 5)],
+		"over_10ms":      len(slow),
+		"during_gc_mark": marking,
+		"during_gc":      gc,
+		"slowest":        slow[:min(len(slow), 5)],
 	}
 }
 
-func gcCycles() uint64 {
-	sample := []metrics.Sample{{Name: "/gc/cycles/total:gc-cycles"}}
-	metrics.Read(sample)
-	return sample[0].Value.Uint64()
+// runtimeSample is what the probe reads before and after each heartbeat.
+type runtimeSample struct {
+	cycles, pauses uint64
+	mutexWait      float64 // seconds, summed over goroutines
+}
+
+func readRuntime() runtimeSample {
+	samples := []metrics.Sample{
+		{Name: "/gc/cycles/total:gc-cycles"},
+		{Name: "/sched/pauses/total/gc:seconds"},
+		{Name: "/sync/mutex/wait/total:seconds"},
+	}
+	metrics.Read(samples)
+	r := runtimeSample{cycles: samples[0].Value.Uint64(), mutexWait: samples[2].Value.Float64()}
+	for _, n := range samples[1].Value.Float64Histogram().Counts {
+		r.pauses += n
+	}
+	return r
+}
+
+// marking reports whether a GC cycle is marking. Every cycle stops the world
+// once to start marking and once to finish it, so a mark is in progress
+// whenever the pauses are not twice the completed cycles.
+func (r runtimeSample) marking() bool { return r.pauses != 2*r.cycles }
+
+// gcMarkBetween reports whether a GC cycle was marking at some point between
+// two samples.
+func gcMarkBetween(a, b runtimeSample) bool {
+	return a.marking() || b.marking() || a.pauses != b.pauses
 }
 
 // gcState is a snapshot of the runtime's GC counters.
