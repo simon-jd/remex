@@ -266,17 +266,47 @@ of 2,000 runs). Results are in `results/bisect-simulation.jsonl`:
   Clopper–Pearson bound exact, because
   P(r-th failure within n runs) = P(Binomial(n, p) ≥ r).
 
-**On real hardware.** `scripts/hardware-corpus.py` generates a 96-commit
-history with five planted regressions (deterministic C++, CUDA and RTL bugs,
-a seeded CUDA data race and a seeded RTL FIFO occupancy bug) and runs
-`remex bisect`, or a one-shot `git bisect run` baseline, on it against real
-workers ([samples/hardware-corpus.md](samples/hardware-corpus.md)). The two
-flaky defects are seed-gated: each test reads `REMEX_SEED` and takes the
-faulty path when SplitMix64(seed) mod 4 is 0
-(`samples/cuda/race/race_test.cu`). About one seed in four triggers it, and a
-given seed always behaves the same way; the flakiness comes from varying the
-seed between runs, not from nondeterministic GPU scheduling. No results from
-these hardware runs are included in `results/`.
+**A performance regression on the RTX 4090.** With `bisect.metric` set,
+remex bisects a measured value instead of a failure (`regress/metric.go`):
+it measures both endpoints, classifies each probed revision by which
+endpoint's median its values are nearer, and requires a one-sided
+Mann–Whitney U p-value below α against the other endpoint's values (checked
+against scipy in `regress/testdata/scipy-reference.json`).
+`scripts/perf-history.py` generates a 40-commit Bazel CUDA workspace whose
+test transposes a 4096 × 4096 matrix and prints the median time of 100
+launches. Commit 26 drops the shared-memory tile, so each warp's writes are
+no longer coalesced; the output stays correct and the test keeps passing.
+One run on real workers, the test compiled on a CPU worker and run on the GPU
+worker (`results/cuda-perf-bisect.json`):
+
+| | Revisions measured | Runs | Median kernel time | Result |
+|---|---|---|---|---|
+| Known good, index 0 | 1 | 10 | 0.1565 ms | |
+| Known bad, index 39 | 1 | 10 | 0.4701 ms | p = 8×10⁻⁵ |
+| Search | 19, 29, 24, 26, 25 | 50 | 0.1565 / 0.4700 ms | good, bad, good, bad, good |
+| Confirmation | 25 and 26 | 40 | 0.1565 / 0.4700 ms | p = 6×10⁻⁶ and 3×10⁻⁶ |
+
+- It named commit 26, the planted one, after 110 test runs in 356 s, all
+  inside one 6-minute hold of the GPU lock. `nvidia-smi` after every run
+  read P0, SM 2,520 MHz, 38–45 °C and 51–60 W; clocks were not locked.
+- The slowdown is large (3.0 times), so this shows the pipeline working on
+  real hardware rather than how small a change it can find. Kernel times
+  repeat to the timer's resolution, so the p-values come from the normal
+  approximation with ties; each is per probe, with no correction across
+  the search.
+
+**Planted failures on real hardware.** `scripts/hardware-corpus.py`
+generates a 96-commit history with five planted regressions (deterministic
+C++, CUDA and RTL bugs, a seeded CUDA data race and a seeded RTL FIFO
+occupancy bug) and runs `remex bisect`, or a one-shot `git bisect run`
+baseline, on it against real workers
+([samples/hardware-corpus.md](samples/hardware-corpus.md)). The two flaky
+defects are seed-gated: each test reads `REMEX_SEED` and takes the faulty
+path when SplitMix64(seed) mod 4 is 0 (`samples/cuda/race/race_test.cu`).
+About one seed in four triggers it, and a given seed always behaves the same
+way; the flakiness comes from varying the seed between runs, not from
+nondeterministic GPU scheduling. No results from these runs are in
+`results/`.
 
 ## Run it
 
@@ -334,6 +364,14 @@ scripts/bazel-sample.sh cpp-history   # in another terminal: a remote Bazel buil
   directories and CAS contents itself, but takes the worker's word for an
   empty cgroup, OOM counts and the GPU identity it reads from NVML. There is
   no authentication and no sandbox; the deployment is for one trusted team.
+- **NVML is used for identity only.** A GPU worker reads one device's UUID,
+  compute capability and driver version (`worker/src/nvml.cc`) and refuses
+  to register if NVML shows more than one device, so multi-GPU hosts and
+  MIG are unsupported. It reads no clocks, temperatures, utilization or
+  memory; the performance bisection gets those from `nvidia-smi`.
+- **Flaky hardware failures are simulated.** The planted CUDA race and RTL
+  bug fail by seed, deterministically; no test here depends on real
+  nondeterminism in GPU scheduling.
 - **Workers.** One action per worker process. The CAS client issues one
   request per blob, so a cold remote build pays a round trip per blob, and
   each worker keeps its own unbounded blob cache. An idle worker polls

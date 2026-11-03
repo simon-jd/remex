@@ -1,0 +1,1408 @@
+{
+ "produced_by": "scripts/perf-history.py generate (defaults) and bisect --runs 10 --budget 400 at commit 68615b2; remex binaries built at 7951b40 (Go) and 5bf8849 (worker), whose Go and C++ sources equal 68615b2's",
+ "host": {
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "driver": "595.99.02",
+  "cuda": "13.2 (V13.2.86)",
+  "cpu": "13th Gen Intel(R) Core(TM) i9-13900K",
+  "workers": "scripts/run-local.sh with REMEX_GPU=1: 2 CPU, 1 RTL, 1 GPU"
+ },
+ "gpu_lock": {
+  "acquired": "2026-11-03T01:13:23Z",
+  "released": "2026-11-03T01:19:20Z"
+ },
+ "bazel_flags": [
+  "--jobs=4",
+  "--repo_env=CUDA_PATH=/usr/local/cuda-13.2",
+  "--@rules_cuda//cuda:archs=sm_89",
+  "--@rules_cuda//cuda:copts=--allow-unsupported-compiler"
+ ],
+ "summary": {
+  "exit": 0,
+  "elapsed_seconds": 356.0,
+  "expected_culprit": "83c23917a31cf8706444f925141d82bdd8af4b70",
+  "expected_culprit_index": 26,
+  "culprit_matches": true,
+  "result": {
+   "revisions": [
+    "af54ced59a757c62078eeaba7388bb71e03fc26e",
+    "0a90f58106612d7166b7fddd6626566047f99d01",
+    "c36075ec489c4f8fb0776836b47a24f3ad4c0c59",
+    "3946e4af119622cb8a11e3cb4557e5b14c9230ee",
+    "9ed291d81a1aa20bb48da454b0c98e2d6753a326",
+    "c272fcb58d47b131a34acb67f018aa8a857d07b3",
+    "43d69d41abbff3c4c0824e8688e6a9fbc94acdcb",
+    "db0635ea4d4dc7e69d4ff55cd4b7d6d079ce08b5",
+    "ed0e22dc2e0bd202b08f4db8578452d39c08f2a1",
+    "3b88a5c48ea03c3fee2b3ea750c44fca5bea46df",
+    "ab4bed657c6f9cabd6356b3ed9bd2be09b8a997c",
+    "6abc0bfa87caf06beca34798a3d52b5c9bc9e804",
+    "9d7823f001ee647cd7d0b31b7695da705fca3d87",
+    "5c2a399284d0d4a6e2f9e063767b53d6489ea4f0",
+    "92089ee97029258a1285d7d2acc50441f2fda9a3",
+    "343c88c3db7a3aebad7ea285d0767dbe0b3eac60",
+    "065185805b9aea9651e4721d18fd878f68526824",
+    "5fcd15f87169e581f55d27ca1667c807952c1ee5",
+    "d1f003b9fb05618a29359e89730e4134b3975e0a",
+    "dd75e111a7c68452e8e97662eed603d072c7a2cb",
+    "e9c3cd6f460f2b3396022ed6ebf9cf5bb85de20d",
+    "23c4e113156d3fbd94d747506781d5ae262de0dd",
+    "ac06e455ad6eb02f6e7c0762208bf8cd070572fe",
+    "b0e51fabb9962424a62ab599e35de6b0f3829955",
+    "56b4a683e7e9dbdac190c335c2d42fd12e0c6712",
+    "0a7d3577b6db9b1e367c274b3ab299dd9368cb07",
+    "83c23917a31cf8706444f925141d82bdd8af4b70",
+    "8518f8a15cdaae2127142364cd80ff0719eb62d8",
+    "25c9cde38b4a982cdd2dd3fea158741d4f90ff2d",
+    "19f7da77c060af0648643f665d0a4ced9d103f19",
+    "e3f3e4dcaa4e59f8204cdc54e932ef4439f134f5",
+    "098ad1bd387b0568be73698f67a0ff8ccc754e70",
+    "acc598a935e44658c07f95d5e316089fc093b374",
+    "c970e7dcb1477adc81e33535c72e61df5e40b5df",
+    "e8ca4d68276e15fdf56a47f86ebeefc27eac88ce",
+    "0cfaf69d92f32b17e1cb7a4ad727130cb0b02b3d",
+    "6f2a0f77f734923812ae5da6a4ffdfddc6237d48",
+    "9dd65f517ab3c8469883d4e8e8f44aa721cb243a",
+    "d5fb26df513a51671d0c3d3a8020947b020d5b39",
+    "f435e9312f7a04b890ee5b36ff8b3896629ecb50"
+   ],
+   "conclusion": "CULPRIT",
+   "culprit": "83c23917a31cf8706444f925141d82bdd8af4b70",
+   "range": [
+    "83c23917a31cf8706444f925141d82bdd8af4b70"
+   ],
+   "reason": "fresh values put the parent with the known-good revision and the culprit with the known-bad one",
+   "signature": "",
+   "failure_rate_lower_bound": 0,
+   "k": 0,
+   "runs": 110,
+   "budget": 400,
+   "probes": [
+    {
+     "revision": "af54ced59a757c62078eeaba7388bb71e03fc26e",
+     "purpose": "known-good",
+     "decision": "GOOD",
+     "observations": [
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2790 mem_mhz=10501 temp_c=51 power_w=140.91 pstate=P2 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=45 power_w=58.06 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3563170846/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3563170846"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15653
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=45 power_w=55.79 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=45 power_w=58.31 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3850931001/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3850931001"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15661
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=45 power_w=58.31 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=45 power_w=57.94 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1748376200/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1748376200"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15638
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=45 power_w=57.76 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=45 power_w=57.76 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-174700508/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-174700508"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15662
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=45 power_w=57.76 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=45 power_w=57.56 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-819294830/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-819294830"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15653
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=45 power_w=55.29 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=44 power_w=58.17 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3769161601/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3769161601"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15654
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=44 power_w=57.83 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=44 power_w=58.20 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3329842152/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3329842152"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15645
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=44 power_w=55.72 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=44 power_w=58.20 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1150007110/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1150007110"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15667
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=44 power_w=57.90 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=44 power_w=58.19 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-980640736/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-980640736"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15645
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=44 power_w=58.19 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=44 power_w=58.01 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4246725074/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4246725074"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15637
+       }
+      }
+     ],
+     "counts": {
+      "PASS": 10
+     },
+     "median": 0.15653
+    },
+    {
+     "revision": "f435e9312f7a04b890ee5b36ff8b3896629ecb50",
+     "purpose": "calibration",
+     "decision": "BAD",
+     "observations": [
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=44 power_w=57.64 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=58.96 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1396570815/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1396570815"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=58.96 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=59.81 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1376448117/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1376448117"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47022
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=57.98 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=55.26 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2149042014/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2149042014"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47019
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=54.27 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=53.42 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-788444546/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-788444546"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=53.42 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=53.69 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-59089341/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-59089341"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47003
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=53.83 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=53.98 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1745360595/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1745360595"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47021
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=54.03 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=53.78 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2403690696/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2403690696"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47022
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=53.85 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=58.87 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-290332944/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-290332944"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47021
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=53.52 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=54.73 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3111717857/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3111717857"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=53.60 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=55.44 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2109626009/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2109626009"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      }
+     ],
+     "counts": {
+      "PASS": 10
+     },
+     "median": 0.47011000000000003,
+     "p": 8.438150966477104e-05
+    },
+    {
+     "revision": "dd75e111a7c68452e8e97662eed603d072c7a2cb",
+     "purpose": "search",
+     "decision": "GOOD",
+     "observations": [
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=42 power_w=53.67 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.26 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3010323549/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3010323549"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15667
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.29 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=55.51 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2512316901/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2512316901"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15659
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.27 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=54.68 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2110495128/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2110495128"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15667
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=52.45 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=55.17 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2387259447/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2387259447"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15658
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=55.17 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.18 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3360990655/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3360990655"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15654
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.25 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.18 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1167027873/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1167027873"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15648
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=41 power_w=53.14 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.35 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3247505608/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3247505608"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15667
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.42 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.51 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-251626522/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-251626522"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15651
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.39 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.56 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3325187656/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3325187656"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15618
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=41 power_w=53.64 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.62 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4103407731/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4103407731"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15646
+       }
+      }
+     ],
+     "counts": {
+      "PASS": 10
+     },
+     "median": 0.15656,
+     "p": 8.342104459086453e-05
+    },
+    {
+     "revision": "19f7da77c060af0648643f665d0a4ced9d103f19",
+     "purpose": "search",
+     "decision": "BAD",
+     "observations": [
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=40 power_w=53.68 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=56.40 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-242210260/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-242210260"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47078
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.24 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=58.64 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1985543356/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1985543356"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.27 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=58.67 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2461766455/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2461766455"
+       ],
+       "metrics": {
+        "transpose_ms": 0.4705
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.29 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.38 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1753147754/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1753147754"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.43 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=58.58 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-415788305/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-415788305"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.10 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.01 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-538683350/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-538683350"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.02 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=58.52 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2727955849/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2727955849"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.19 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=56.53 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4157118685/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4157118685"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.26 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.10 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3019586565/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3019586565"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=53.10 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=54.40 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2658779162/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2658779162"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47014
+       }
+      }
+     ],
+     "counts": {
+      "PASS": 10
+     },
+     "median": 0.47002,
+     "p": 6.50664893533116e-05
+    },
+    {
+     "revision": "56b4a683e7e9dbdac190c335c2d42fd12e0c6712",
+     "purpose": "search",
+     "decision": "GOOD",
+     "observations": [
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=52.66 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.19 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3082733271/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3082733271"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15646
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.28 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.76 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3269271961/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3269271961"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15661
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.51 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.09 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3799502406/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3799502406"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15651
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=52.09 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=51.84 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1023516447/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1023516447"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15667
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=51.84 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=52.13 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2218382938/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2218382938"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15638
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=52.13 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=54.65 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3961433661/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3961433661"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15658
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=52.20 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=52.18 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3198055189/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3198055189"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15646
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=52.25 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=51.71 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4113899772/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4113899772"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15662
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=51.79 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=54.20 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1665048168/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1665048168"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15664
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=51.76 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=51.61 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3704703019/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3704703019"
+       ],
+       "metrics": {
+        "transpose_ms": 0.1565
+       }
+      }
+     ],
+     "counts": {
+      "PASS": 10
+     },
+     "median": 0.156545,
+     "p": 8.486480433072494e-05
+    },
+    {
+     "revision": "83c23917a31cf8706444f925141d82bdd8af4b70",
+     "purpose": "search",
+     "decision": "BAD",
+     "observations": [
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=39 power_w=51.71 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.66 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1302672621/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1302672621"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.66 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.98 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1951543279/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1951543279"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.03 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.23 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1985292348/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1985292348"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47003
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.24 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=56.45 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2999154936/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2999154936"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.12 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=55.39 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3828307812/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3828307812"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47016
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.99 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=55.07 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-777051464/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-777051464"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.76 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.79 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3080408219/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3080408219"
+       ],
+       "metrics": {
+        "transpose_ms": 0.4701
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.85 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.59 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-93964465/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-93964465"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.58 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=53.89 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4292378969/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4292378969"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47008
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.28 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.88 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2925737372/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2925737372"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      }
+     ],
+     "counts": {
+      "PASS": 10
+     },
+     "median": 0.47002,
+     "p": 7.381925187623017e-05
+    },
+    {
+     "revision": "0a7d3577b6db9b1e367c274b3ab299dd9368cb07",
+     "purpose": "search",
+     "decision": "GOOD",
+     "observations": [
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.93 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.93 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2755780480/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2755780480"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15643
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.93 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.49 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2787956124/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2787956124"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15667
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.33 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.58 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1177736618/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1177736618"
+       ],
+       "metrics": {
+        "transpose_ms": 0.1563
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.63 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.81 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-318873958/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-318873958"
+       ],
+       "metrics": {
+        "transpose_ms": 0.1563
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.84 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.42 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1935198733/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1935198733"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15654
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.18 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.22 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-310499607/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-310499607"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15642
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.29 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.06 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2225028466/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2225028466"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15662
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.06 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.49 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-361860542/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-361860542"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15648
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.34 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.20 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2822012652/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2822012652"
+       ],
+       "metrics": {
+        "transpose_ms": 0.1565
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.23 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.00 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3560043891/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3560043891"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15654
+       }
+      }
+     ],
+     "counts": {
+      "PASS": 10
+     },
+     "median": 0.15649000000000002,
+     "p": 8.438150966477104e-05
+    },
+    {
+     "revision": "0a7d3577b6db9b1e367c274b3ab299dd9368cb07",
+     "purpose": "confirm-parent",
+     "decision": "GOOD",
+     "observations": [
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.00 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.59 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1916070665/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1916070665"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15664
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=53.92 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.02 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2913899909/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2913899909"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15645
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.02 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.58 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1270384621/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1270384621"
+       ],
+       "metrics": {
+        "transpose_ms": 0.1564
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.30 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.24 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2301678924/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2301678924"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15646
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.35 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.53 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4189918457/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4189918457"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15648
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.53 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.12 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2970767038/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2970767038"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15646
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.12 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.05 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-972758411/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-972758411"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15661
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.10 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.17 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1731456738/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1731456738"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15667
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.26 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.38 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1432125049/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1432125049"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15648
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.38 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.44 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4024438101/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4024438101"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15645
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.52 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.20 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4253422318/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4253422318"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15648
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.31 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=55.03 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1904814316/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1904814316"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15648
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=55.03 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.68 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-430981274/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-430981274"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15646
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.27 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.69 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-237900351/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-237900351"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15667
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.49 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.55 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1906423247/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1906423247"
+       ],
+       "metrics": {
+        "transpose_ms": 0.1564
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.55 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.86 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1804647124/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1804647124"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15659
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.86 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.99 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1257731722/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1257731722"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15651
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.11 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.13 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3977922895/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3977922895"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15638
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.18 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.74 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-990361760/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-990361760"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15654
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.77 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.89 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2258748080/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2258748080"
+       ],
+       "metrics": {
+        "transpose_ms": 0.15648
+       }
+      }
+     ],
+     "counts": {
+      "PASS": 20
+     },
+     "median": 0.15648,
+     "p": 5.499738971357289e-06
+    },
+    {
+     "revision": "83c23917a31cf8706444f925141d82bdd8af4b70",
+     "purpose": "confirm-culprit",
+     "decision": "BAD",
+     "observations": [
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.40 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.58 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1322170133/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1322170133"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.63 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.54 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-689832129/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-689832129"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47019
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.63 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.61 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-238040213/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-238040213"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.49 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=57.12 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1185528135/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1185528135"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47006
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.98 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=56.85 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3502838761/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3502838761"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47005
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.69 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.80 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2174936114/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2174936114"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.85 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=56.73 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3042118883/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3042118883"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.44 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.93 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-193405353/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-193405353"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=52.03 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=55.69 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1617170208/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-1617170208"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47003
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.62 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.75 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-935946769/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-935946769"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47013
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.79 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=56.73 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-470020744/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-470020744"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.60 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.62 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2089725639/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2089725639"
+       ],
+       "metrics": {
+        "transpose_ms": 0.4701
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.70 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.26 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3473541784/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3473541784"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47003
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.33 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.48 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4071859801/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-4071859801"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.48 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=56.67 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2644952429/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2644952429"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.41 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=54.64 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-368940336/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-368940336"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47005
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.61 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.74 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2790620894/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2790620894"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.74 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.75 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-279259996/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-279259996"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.78 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.73 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2094391301/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-2094391301"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      },
+      {
+       "category": "PASS",
+       "detail": "gpu before: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=51.73 pstate=P0 util_pct=0; after: sm_mhz=2520 mem_mhz=10501 temp_c=38 power_w=56.82 pstate=P0 util_pct=0",
+       "evidence": [
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3199300514/hardware-run",
+        "/home/postedism/Desktop/build-regression/evidence/runs/perf-bisect/probes/probe-3199300514"
+       ],
+       "metrics": {
+        "transpose_ms": 0.47002
+       }
+      }
+     ],
+     "counts": {
+      "PASS": 20
+     },
+     "median": 0.47002,
+     "p": 3.007728381709044e-06
+    }
+   ],
+   "metric": {
+    "name": "transpose_ms",
+    "runs": 10,
+    "max_runs": 30,
+    "min_shift": 0.05
+   },
+   "shift": 2.0033220468919697
+  }
+ }
+}
