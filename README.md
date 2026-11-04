@@ -48,9 +48,10 @@ and answered inconclusive 4.5% of the time.
   NativeLink) was run on the same builds.
 - **Thin hardware evidence.** The GPU performance bisect is one run on a
   synthetic 40-commit history with a 3.0 times slowdown: it shows the
-  pipeline working, not how small a change it can find. The planted CUDA race and RTL bug fail by seed,
-  deterministically; no test here depends on real nondeterminism in GPU
-  scheduling.
+  pipeline working, not how small a change it can find. The planted CUDA
+  race and RTL bug fail by seed, deterministically; no test here depends on
+  real nondeterminism in GPU scheduling. The planted-regression harness for
+  real hardware has no committed results.
 
 More: [how it works](#how-it-works) and [docs/design.md](docs/design.md);
 [design trade-offs](docs/design-tradeoffs.md), with measurements of the

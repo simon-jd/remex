@@ -278,15 +278,8 @@ worker (`results/cuda-perf-bisect.json`):
 
 ## Planted failures on real hardware
 
-`scripts/hardware-corpus.py`
-generates a 96-commit history with five planted regressions (deterministic
-C++, CUDA and RTL bugs, a seeded CUDA data race and a seeded RTL FIFO
-occupancy bug) and runs `remex bisect`, or a one-shot `git bisect run`
-baseline, on it against real workers
-([samples/hardware-corpus.md](../samples/hardware-corpus.md)). The two flaky
-defects are seed-gated: each test reads `REMEX_SEED` and takes the faulty
-path when SplitMix64(seed) mod 4 is 0 (`samples/cuda/race/race_test.cu`).
-About one seed in four triggers it, and a given seed always behaves the same
-way; the flakiness comes from varying the seed between runs, not from
-nondeterministic GPU scheduling. No results from these runs are in
-`results/`.
+`scripts/hardware-corpus.py` is a harness that plants five regressions in a
+96-commit history (deterministic C++, CUDA and RTL bugs, and a seed-gated
+CUDA race and RTL FIFO bug) and bisects them on real workers
+([samples/hardware-corpus.md](../samples/hardware-corpus.md)). No results
+from it are committed.
