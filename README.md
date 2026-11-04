@@ -283,7 +283,7 @@ of 2,000 runs). Results are in `results/bisect-simulation.jsonl`:
 | 1 | 58% | 81% | N = 1: 100% / 0%, 11 | **100% / 0% / 0%** | 50 (57) |
 | 0.5 | 3% | 5% | N = 10: 99.3% / 0.7%, 67 | **96.3% / 0% / 3.7%** | 128 (196) |
 | 0.25 | 0.2% | 0.9% | N = 30: 99.8% / 0.1%, 186 | **95.5% / 0% / 4.5%** | 275 (467) |
-| 0.1 | 0.1% | 0.3% | N = 100: 99.8% / 0.1%, 609 | **93.7% / 0% / 6.3%** | 725 (1,180) |
+| 0.1 | 0.1% | 0.3% | N = 100: 99.8% / 0.1%, 609 | **93.6% / 0% / 6.4%** | 725 (1,180) |
 
 - **With the failure rate known, reruns win.** A rerun count picked for the
   true p is right at least as often as remex and costs fewer runs in every
