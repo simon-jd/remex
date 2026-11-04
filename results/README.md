@@ -22,8 +22,8 @@ Each file holds one JSON object per run or per simulated configuration.
 
 The earlier versions are not part of this repository; their records are kept
 because [docs/design-tradeoffs.md](../docs/design-tradeoffs.md) cites them as
-the reason for a design decision. The README's control-plane table comes
-from `control-plane.jsonl`, measured at commit 25d4067, before the deadline
+the reason for a design decision. The control-plane table in
+[docs/benchmarks.md](../docs/benchmarks.md) comes from `control-plane.jsonl`, measured at commit 25d4067, before the deadline
 heap and the chunked event log; the worker sweep from
 `control-plane-workers*.jsonl`.
 
