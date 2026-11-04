@@ -245,7 +245,7 @@ of 2,000 runs). Results are in `results/bisect-simulation.jsonl`:
   Clopper–Pearson bound exact, because
   P(r-th failure within n runs) = P(Binomial(n, p) ≥ r).
 
-## A performance regression on the RTX 4090
+## GPU performance bisection: one run, synthetic 40-commit history
 
 With `bisect.metric` set,
 remex bisects a measured value instead of a failure (`regress/metric.go`):

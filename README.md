@@ -47,7 +47,8 @@ and answered inconclusive 4.5% of the time.
   versions of remex. No other REAPI scheduler (Buildbarn, Buildfarm,
   NativeLink) was run on the same builds.
 - **Thin hardware evidence.** The GPU performance bisect is one run on a
-  synthetic history. The planted CUDA race and RTL bug fail by seed,
+  synthetic 40-commit history with a 3.0 times slowdown: it shows the
+  pipeline working, not how small a change it can find. The planted CUDA race and RTL bug fail by seed,
   deterministically; no test here depends on real nondeterminism in GPU
   scheduling.
 
