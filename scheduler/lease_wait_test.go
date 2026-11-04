@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -20,7 +21,8 @@ func TestLeaseWaitsForWork(t *testing.T) {
 	if err != nil || registered.LeaseWaitMs != limit.Milliseconds() || limit != time.Second/3 {
 		t.Fatalf("register = %v, %v; lease wait %v", registered, err, limit)
 	}
-	request := &w.LeaseRequest{WorkerId: "cpu1", Properties: map[string]string{"pool": "cpu"}, WaitMs: 60_000}
+	// The longest wait a worker can ask for is capped, not overflowed.
+	request := &w.LeaseRequest{WorkerId: "cpu1", Properties: map[string]string{"pool": "cpu"}, WaitMs: math.MaxInt64}
 
 	started := time.Now()
 	r, err := f.s.Lease(f.ctx, request)

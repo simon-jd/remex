@@ -640,7 +640,10 @@ func (s *Scheduler) Lease(ctx context.Context, r *w.LeaseRequest) (*w.LeaseRespo
 	if err := validWorker(r.WorkerId, r.Properties, r.DeviceSnapshotJson); err != nil {
 		return nil, err
 	}
-	wait := min(time.Duration(r.WaitMs)*time.Millisecond, s.cfg.LeaseWait)
+	wait := s.cfg.LeaseWait
+	if r.WaitMs < wait.Milliseconds() { // compared first: a huge wait_ms would overflow
+		wait = time.Duration(r.WaitMs) * time.Millisecond
+	}
 	var timeout <-chan time.Time
 	for {
 		lease, ready, err := s.leaseOnce(ctx, r)
