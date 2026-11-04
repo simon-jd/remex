@@ -14,10 +14,12 @@ remote workers, so both sides get the same CPUs.
 
 Prints one JSON line per build; remote builds also summarize the scheduler's
 ledger (see ledger_summary). The output directory keeps every log, BEP
-file, execution log and ledger; --summarize OUTPUT prints the ledger
-summaries of an earlier run again, with as many --jobs as it had.
+file, execution log and ledger; --summarize OUTPUT prints the Bazel timing,
+gRPC and ledger summaries of an earlier run again, given as many --jobs as
+it had.
 """
 import argparse
+import base64
 import datetime
 import hashlib
 import json
@@ -26,6 +28,7 @@ import pathlib
 import platform
 import statistics
 import subprocess
+import sys
 import time
 import urllib.request
 
@@ -55,6 +58,27 @@ def runner_counts(bep):
     return None, {}
 
 
+def bazel_timing(bep):
+    """Bazel's own split of the build's wall time, in seconds: analysis, when
+    the first action started, and the execution phase."""
+    for line in bep.read_text().splitlines():
+        timing = json.loads(line).get("buildMetrics", {}).get("timingMetrics")
+        if timing:
+            return dict(wall_s=int(timing["wallTimeInMs"]) / 1000, analysis_s=int(timing["analysisPhaseTimeInMs"]) / 1000,
+                        actions_start_s=int(timing["actionsExecutionStartInMs"]) / 1000,
+                        execution_s=int(timing["executionPhaseTimeInMs"]) / 1000)
+    return None
+
+
+def grpc_calls(log):
+    """Bazel's remote calls by method: how many, and their summed duration
+    (calls overlap, so the sum can exceed the wall time)."""
+    report = json.loads(subprocess.run([sys.executable, str(ROOT / "scripts/summarize-grpc-log.py"), str(log)],
+                                       capture_output=True, text=True, check=True).stdout)[0]
+    return {method.rsplit("/", 1)[1]: dict(calls=d["count"], total_s=round(d["mean"] * d["count"], 2))
+            for method, d in report["rpc_duration_seconds"].items()}
+
+
 # Ledger events that bound each phase of a remote action.
 PHASES = {
     "queued": ("execution_created", "lease_granted"),  # waiting for a worker to lease it
@@ -62,6 +86,48 @@ PHASES = {
     "run": ("command_started", "uploading"),  # the command itself
     "upload": ("uploading", "attempt_committed"),  # outputs to the CAS, their check, the commit
 }
+
+
+# Timestamps a worker writes into ActionResult.execution_metadata
+# (REAPI ExecutedActionMetadata field numbers), and the phases between them.
+WORKER_PHASES = {
+    "input_fetch": (5, 6),  # inputs from the CAS
+    "setup": (6, 7),  # output directories, cgroup, process, RUNNING acknowledged
+    "command": (7, 8),
+    "output_upload": (9, 10),  # outputs to the CAS
+}
+
+
+def protobuf_fields(data):
+    """(field number, value) for each varint or length-delimited field."""
+    def varint(at):
+        n = shift = 0
+        while True:
+            byte = data[at]
+            n, shift, at = n | (byte & 127) << shift, shift + 7, at + 1
+            if not byte & 128:
+                return n, at
+    at = 0
+    while at < len(data):
+        key, at = varint(at)
+        if key & 7 == 0:
+            value, at = varint(at)
+        elif key & 7 == 2:
+            size, at = varint(at)
+            value, at = data[at:at + size], at + size
+        else:
+            at += {1: 8, 5: 4}[key & 7]
+            continue
+        yield key >> 3, value
+
+
+def worker_timestamps(result):
+    """The execution_metadata timestamps of a base64 ActionResult, in seconds."""
+    for number, metadata in protobuf_fields(base64.b64decode(result)):
+        if number == 9:
+            return {n: sum(v * scale for f, v in protobuf_fields(stamp) for scale in [{1: 1, 2: 1e-9}.get(f, 0)])
+                    for n, stamp in protobuf_fields(metadata) if isinstance(stamp, bytes) and n in range(3, 11)}
+    return {}
 
 
 def ledger_summary(path, seen, workers):
@@ -72,11 +138,13 @@ def ledger_summary(path, seen, workers):
     phase in PHASES its total over the executions and its median.
     queued_with_idle_worker_s is the queued time during which at least as
     many of the workers held no lease as there were executions queued: time
-    the work waited although a worker was free to run it."""
+    the work waited although a worker was free to run it. worker_phases
+    splits each committed result's worker time by WORKER_PHASES."""
     def at(event):
         return datetime.datetime.fromisoformat(event["time"].replace("Z", "+00:00")).timestamp()
     times = {}
-    for event in json.loads(path.read_text())["events"]:
+    ledger = json.loads(path.read_text())
+    for event in ledger["events"]:
         if event["kind"] in {kind for phase in PHASES.values() for kind in phase} and event["execution_id"] not in seen:
             times.setdefault(event["execution_id"], {}).setdefault(event["kind"], at(event))
     created = {x: t["execution_created"] for x, t in times.items() if "execution_created" in t}
@@ -87,8 +155,11 @@ def ledger_summary(path, seen, workers):
     committed = {x: times[x]["attempt_committed"] for x in created}
     phases = {}
     for name, (start, end) in PHASES.items():
-        spans = [times[x][end] - times[x][start] for x in created]
-        phases[name] = dict(total_s=round(sum(spans), 2), median_ms=round(statistics.median(spans) * 1000, 1))
+        # An execution without both events, such as one whose every attempt
+        # failed before its command started, is left out of that phase.
+        spans = [times[x][end] - times[x][start] for x in created if start in times[x] and end in times[x]]
+        phases[name] = dict(total_s=round(sum(spans), 2),
+                            median_ms=round(statistics.median(spans) * 1000, 1) if spans else None)
     changes = sorted([(t, 1, 0) for t in created.values()] + [(t, -1, 1) for t in leased.values()] +
                      [(t, 0, -1) for t in committed.values()])
     queued = busy = 0
@@ -96,11 +167,17 @@ def ledger_summary(path, seen, workers):
     for t, queue_change, busy_change in changes:
         idle_wait += (t - last) * min(queued, max(workers - busy, 0))
         queued, busy, last = queued + queue_change, busy + busy_change, t
+    stamps = [worker_timestamps(e["result"]) for e in ledger["executions"] if e["id"] in created and e.get("result")]
+    worker_phases = {}
+    for name, (start, end) in WORKER_PHASES.items():
+        spans = [t[end] - t[start] for t in stamps if start in t and end in t]
+        worker_phases[name] = dict(total_s=round(sum(spans), 2),
+                                   median_ms=round(statistics.median(spans) * 1000, 1) if spans else None)
     return dict(executions=len(created), complete=True,
                 queued_ms_median=round(statistics.median(leased[x] - created[x] for x in created) * 1000, 1),
                 scheduler_span_s=round(max(committed.values()) - min(created.values()), 2),
                 worker_busy_s=round(sum(committed[x] - leased[x] for x in created), 2),
-                phases=phases, queued_with_idle_worker_s=round(idle_wait, 2))
+                phases=phases, queued_with_idle_worker_s=round(idle_wait, 2), worker_phases=worker_phases)
 
 
 def environment(cores, jobs):
@@ -173,13 +250,18 @@ class RemoteStack:
 
 
 def summarize(out, workers):
-    trials = sorted(int(folder.name[len("trial"):-len("-remote-cold")]) for folder in out.glob("trial*-remote-cold"))
+    trials = sorted(int(folder.name[len("trial"):-len("-local-cold")]) for folder in out.glob("trial*-local-cold"))
     for trial in trials:
         seen = set()
-        for name in ("remote-cold", "remote-warm"):
-            ledger = out / f"trial{trial}-{name}" / "ledger.json"
-            if ledger.is_file():
-                print(json.dumps(dict(trial=trial, build=name, ledger=ledger_summary(ledger, seen, workers))), flush=True)
+        for name in ORDER:
+            folder = out / f"trial{trial}-{name}"
+            if not (folder / "bep.json").is_file():
+                continue
+            row = dict(trial=trial, build=name, bazel=bazel_timing(folder / "bep.json"))
+            if name.startswith("remote"):
+                row["grpc"] = grpc_calls(folder / "grpc.bin")
+                row["ledger"] = ledger_summary(folder / "ledger.json", seen, workers)
+            print(json.dumps(row), flush=True)
 
 
 def main():
@@ -189,7 +271,7 @@ def main():
     parser.add_argument("--trials", type=int, default=1)
     parser.add_argument("--output", type=pathlib.Path)
     parser.add_argument("--summarize", type=pathlib.Path, metavar="OUTPUT",
-                        help="print the ledger summary of every remote build in an earlier --output directory and exit")
+                        help="print the summaries of every build in an earlier --output directory and exit")
     args = parser.parse_args()
     if args.summarize:
         summarize(args.summarize, args.jobs)
@@ -238,11 +320,12 @@ def main():
                         digests[target] = hashlib.sha256(binary.read_bytes()).hexdigest()
                 actions, runners = runner_counts(folder / "bep.json")
                 row = dict(trial=trial, build=name, exit_code=code, seconds=round(elapsed, 2), actions_executed=actions,
-                           runners=runners, output_sha256=digests)
+                           runners=runners, output_sha256=digests, bazel=bazel_timing(folder / "bep.json"))
                 if name == "remote-cold":
                     seen = set()
                 if name.startswith("remote"):
                     stack.ledger(folder / "ledger.json")
+                    row["grpc"] = grpc_calls(folder / "grpc.bin")
                     row["ledger"] = ledger_summary(folder / "ledger.json", seen, args.jobs)
                 row["environment"] = env
                 print(json.dumps(row), flush=True)
