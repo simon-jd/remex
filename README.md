@@ -42,7 +42,13 @@ and answered inconclusive 4.5% of the time.
 - **One leader, one lock.** One scheduler process; there is no
   replication. A crash stalls builds until a supervisor restarts it.
   Running attempts survive an outage shorter than their lease; a longer one
-  re-runs them.
+  re-runs them. With 4,096 synthetic workers, the queue for the one
+  scheduler lock sets the probe's heartbeat (median 23 ms, worst 73–134 ms
+  in memory), and the leader's group commit holds PostgreSQL to 3,448
+  actions/s. Splitting the lock would need the ledger sharded, with a lock,
+  run queue and lease-deadline heap per shard, a Lease that looks across
+  shards, and one commit order across them so that the store still holds a
+  prefix of what any call observed; none of this is built.
 - **Narrow comparisons.** Only against local Bazel, `git bisect` and earlier
   versions of remex. No other REAPI scheduler (Buildbarn, Buildfarm,
   NativeLink) was run on the same builds.
