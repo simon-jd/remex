@@ -29,7 +29,14 @@ consensus round per change and a far larger correctness argument.
 
 **Cost.** One machine's memory bounds the ledger, and a crash is an outage
 until a supervisor restarts the process; recovery reloads the ledger and
-gives in-flight leases a grace period.
+gives in-flight leases a grace period. Whatever a mutation costs under the
+lock, every other RPC waits for. Keeping the event log in one slice made
+that cost the whole log whenever the slice grew: with 64 workers, the
+slowest probe heartbeat of every 20 s run waited on such a copy, 33–211 ms
+(`results/control-plane-workers-event-slice.jsonl`). In chunks of 4,096
+events the worst was 4.4–93 ms (`results/control-plane-workers.jsonl`).
+With 4,096 workers the one lock itself is the limit: the probe's median
+heartbeat is 23 ms either way.
 
 ## Per-platform run queues
 

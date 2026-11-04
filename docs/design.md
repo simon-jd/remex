@@ -101,7 +101,10 @@ written to the action cache (`Published`).
 The scheduler keeps the whole ledger in memory and persists it to
 PostgreSQL. It runs as a single leader, which holds a PostgreSQL advisory
 lock on its connection.
-- The ledger holds executions, attempts and an append-only event log.
+- The ledger holds executions, attempts and an append-only event log. The
+  events that commits append are kept in chunks of 4,096
+  (`scheduler/eventlog.go`), so an append never copies the events before
+  it; an export still lists all of them in order.
 - Each mutation is one transaction:
   - it copies a row the first time it writes it;
   - it produces a `Change`: exactly the rows it touched and the events it

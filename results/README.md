@@ -6,7 +6,8 @@ Each file holds one JSON object per run or per simulated configuration.
 |---|---|---|
 | `control-plane.jsonl` | `scripts/bench-control-plane.sh` (`cmd/remex-loadtest`) | The scheduler in this repository: five runs of every cell, including deep queues. Each record names the commit it measured and its environment (CPU, memory, disk, kernel, Go, PostgreSQL version and settings). |
 | `cpu-build.jsonl` | `scripts/benchmark-cpu.py --cores 8,10,12,14 --jobs 4 --trials 5` | Wall time of local and remote, cold and warm builds of `samples/cpp-history`, one row per build, with Bazel's per-strategy action counts, the test binaries' SHA-256, and for remote builds a summary of the scheduler's ledger (executions, median wait for a lease, the scheduler's span, summed worker time). |
-| `control-plane-workers.jsonl` | `REMEX_BENCH_MATRIX=workers scripts/bench-control-plane.sh` | The scheduler with the deadline heap: 64, 512 and 4,096 workers on both stores, and 10 s in-memory runs with GC on and `GOGC=off`, five runs each. Records carry GC cycles and pauses, the event log's size and reallocations, and the probe heartbeats over 10 ms with what they overlapped. |
+| `control-plane-workers.jsonl` | `REMEX_BENCH_MATRIX=workers scripts/bench-control-plane.sh` | The scheduler with the chunked event log: 64, 512 and 4,096 workers on both stores, and 10 s in-memory runs with GC on and `GOGC=off`, five runs each. Records carry GC cycles and pauses, how many probe heartbeats overlapped a GC mark, and the probe heartbeats over 10 ms with whether a GC cycle was marking and how many goroutines were blocked on a lock meanwhile. |
+| `control-plane-workers-event-slice.jsonl` | the same, at commit 7951b40 | The scheduler with the deadline heap that still kept its events in one slice, five runs of each cell. Its slow heartbeats record whether a commit reallocated the event log while they waited. |
 | `control-plane-workers-deadline-scan.jsonl` | the same, with `cmd/remex-loadtest` built at commit f30b45c | The scheduler before the deadline heap, three runs of each cell. Its load test predates the GC and slow-heartbeat fields. |
 | `control-plane-deep-queue-sorted.jsonl` | `cmd/remex-loadtest -queue` with the bench script's flags | The deep-queue cells at the commit before Lease used per-platform queues, when it sorted every runnable execution on each call (commit recorded in each row). |
 | `control-plane-group-commit.jsonl` | `scripts/bench-control-plane.sh` (`cmd/remex-loadtest`) | `group-commit-r1`, `group-commit-r2`: the scheduler after group commit was added, before the environment and commit were recorded. `per-mutation-r1`, `per-mutation-r2`: an earlier version of the scheduler that made one PostgreSQL commit per ledger mutation under the scheduler lock. Two runs of each, in the order listed. |
@@ -20,8 +21,9 @@ Each file holds one JSON object per run or per simulated configuration.
 The earlier versions are not part of this repository; their records are kept
 because [docs/design-tradeoffs.md](../docs/design-tradeoffs.md) cites them as
 the reason for a design decision. The README's control-plane table comes
-from `control-plane.jsonl`, measured at commit 25d4067; the worker sweep
-from `control-plane-workers*.jsonl`.
+from `control-plane.jsonl`, measured at commit 25d4067, before the deadline
+heap and the chunked event log; the worker sweep from
+`control-plane-workers*.jsonl`.
 
 `scripts/bench-control-plane.sh` runs PostgreSQL in a local
 `postgres:18-alpine` container on the same host. Only `control-plane.jsonl`,
