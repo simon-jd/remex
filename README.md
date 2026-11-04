@@ -153,6 +153,18 @@ scripts/bazel-sample.sh cpp-history   # in another terminal: a remote Bazel buil
   - a CAS that loses blobs or rejects writes;
   - workers killed or stopped mid-action;
   - duplicate and lost Complete responses.
+- **Vendored and generated code.** `worker/third_party/` holds unmodified
+  protos: REAPI's `remote_execution.proto` (remote-apis v2.12.0) and the
+  googleapis files it imports ([its README](worker/third_party/README.md)).
+  CMake and Bazel generate the C++ classes from them at build time. The Go
+  files `api/worker/v1/*.pb.go` are generated from `worker.proto` with
+  protoc-gen-go v1.36.11 and protoc-gen-go-grpc v1.6.1:
+
+  ```bash
+  protoc -I . --go_out=. --go_opt=module=github.com/simon-jd/remex \
+    --go-grpc_out=. --go-grpc_opt=module=github.com/simon-jd/remex \
+    api/worker/v1/worker.proto
+  ```
 
 ## Layout
 
