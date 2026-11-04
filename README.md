@@ -19,7 +19,7 @@ histories, and one run on a synthetic CUDA history.
 | Cold build and test of `samples/cpp-history`, median of 5 | 8.7 s | Local Bazel, same 4 cores: 6.7 s | Local |
 | Warm build (cache hits, tests rerun), median of 5 | 3.9 s | Local Bazel: 3.3 s | Local |
 | Scheduler SIGKILLed while an action uploads 64 MiB: kill to build done, median of 5 | 2.2 s | Earlier worker, which re-ran the action: 13.8 s | remex |
-| PostgreSQL ledger, 64 synthetic workers: actions/s, median of 5 | 1,479 | Earlier remex, one commit per mutation: 117 | remex |
+| PostgreSQL ledger, 64 synthetic workers: actions/s, median of 5 | 1,479 | Earlier remex, one commit per mutation: 117 (median of 3) | remex |
 | Flaky bisect, failure rate 0.25, 1,000 simulated histories: correct | 95.5% | `git bisect run`, `exit 125` on infrastructure failures: 0.9% | remex |
 | The same bisections: median test runs | 275 | `git bisect run`, 30 reruns per revision: 186 | Reruns |
 
