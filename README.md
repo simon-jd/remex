@@ -31,27 +31,53 @@ and test actions) from `bazel clean`, locally and through remex. PostgreSQL,
 bazel-remote, the scheduler, four CPU workers and Bazel all run on the same
 four cores (one thread on each of four P-cores), and local builds use four
 jobs. Cold builds start from an empty cache, warm builds reuse it, and every
-build reruns the tests. Five trials (`results/cpu-build.jsonl`, commit
-3f8873f); median wall time with the range:
+build reruns the tests. Five trials each, of this scheduler and workers
+(`results/cpu-build.jsonl`, commit 5ee4b65) and of the earlier ones whose
+idle workers polled Lease every 500 ms (`results/cpu-build-lease-poll.jsonl`,
+commit 3f8873f), each with its local builds; median wall time with the range:
 
 | Build | Cold | Warm |
 |---|---|---|
-| Local Bazel, disk cache | 6.5 s (6.2–7.3) | 3.6 s (3.3–3.7) |
-| Through remex and bazel-remote | 11.3 s (10.9–12.9) | 3.8 s (3.5–4.5) |
+| Local Bazel, disk cache | 6.7 s (5.6–7.6) | 3.3 s (3.2–3.7) |
+| Through remex and bazel-remote | 8.7 s (8.2–10.6) | 3.9 s (3.4–4.5) |
+| Earlier run: local Bazel | 6.5 s (6.2–7.3) | 3.6 s (3.3–3.7) |
+| Earlier run: remex, 500 ms Lease polls | 11.3 s (10.9–12.9) | 3.8 s (3.5–4.5) |
 
-- **Cold remote builds take 1.7 times as long.** The ledger shows the 90
-  executions busy on workers for 15–22 s in all, while the scheduler's span
-  from the first execution to the last commit was 7.6–9.3 s: the four
-  workers were busy 50–59% of it. The median execution waited 67–89 ms
-  for a lease, because an idle worker polls Lease every 500 ms rather than
-  holding a long poll. The other 3.2–3.6 s of wall time are outside that span:
-  Bazel's own work after the clean, uploading inputs before the first action
-  and downloading outputs after the last.
-- **Warm builds** hit the cache for all 88 compile and link actions and run
-  only the two tests remotely; each of those waited 97–194 ms for a lease.
-- All 20 builds produced identical test binaries. It is one small workspace
-  on one host, with the workers sharing the client's cores; it does not say
-  how remex behaves on a cluster.
+- **Idle workers wait in Lease.** An idle worker's Lease is now held until
+  work is queued for it (for up to 1 s, then the worker asks again). With
+  the 500 ms polls, actions of a cold build spent 8.7–9.5 s queued in all,
+  every second of it while a worker sat idle
+  (`results/cpu-build-lease-poll-breakdown.jsonl`); now 0.02–0.1 s, and the
+  median action is leased in under 0.1 ms instead of 67–89 ms. The
+  scheduler's span from the first execution to the last commit fell from
+  7.6–9.3 s to 4.7–5.5 s, and the four workers were busy 80–86% of it
+  instead of 50–59%. Cold remote builds take 1.3 times as long as local
+  ones, down from 1.7.
+- **Where the rest goes.** By Bazel's own timing
+  (`results/cpu-build-breakdown.jsonl`), most of the remaining 2.0 s is in
+  the execution phase: 5.1 s (4.8–5.6) remotely against 3.3 s (2.8–3.6)
+  locally. Bazel also starts the first action later, at 3.8 s against
+  3.3 s (medians; the ranges overlap). Workers spent 16–18 s on the 90
+  actions, 12.6–13.9 s of it running the commands. Per action, a worker
+  spends a median 5–6 ms fetching inputs from the CAS, 17–19 ms creating
+  output directories, the cgroup and the process and having the scheduler
+  record RUNNING, and about 5 ms uploading outputs. For the other 14–20% of
+  their time in the span the workers are idle with nothing queued: the
+  next actions are waiting for their dependencies' results, or for Bazel
+  to upload their inputs.
+  A cold build makes 701–703 ByteStream.Write calls to bazel-remote, one
+  per missing blob, 3.7–6.8 s summed over calls that overlap.
+- **Warm builds are no faster.** They hit the cache for all 88 compile and
+  link actions and run only the two tests remotely. The tests no longer
+  wait for a lease (97–194 ms each before), but the scheduler's span is
+  0.16–0.33 s of a 3.9 s build, and the medians moved by less than the
+  run-to-run spread. Compared with local builds, Bazel starts executing
+  later (3.5 s against 3.1 s) and its execution phase, here 88 cache
+  lookups, 48 output downloads and the two tests, takes 0.22 s against
+  0.10 s; these records do not show why the start is later.
+- All 40 builds produced identical test binaries. It is one small
+  workspace on one host, with the workers sharing the client's cores; it
+  does not say how remex behaves on a cluster.
 
 **Control plane under load.** `cmd/remex-loadtest` drives the scheduler in
 process: 64 synthetic workers loop Lease → Heartbeat → Complete against a
@@ -388,9 +414,11 @@ scripts/bazel-sample.sh cpp-history   # in another terminal: a remote Bazel buil
   nondeterminism in GPU scheduling.
 - **Workers.** One action per worker process. The CAS client issues one
   request per blob, so a cold remote build pays a round trip per blob, and
-  each worker keeps its own unbounded blob cache. An idle worker polls
-  Lease every 500 ms, so work that arrives while workers are idle waits
-  for the next poll (67–89 ms at the median in the cold builds above).
+  each worker keeps its own unbounded blob cache. An idle worker holds a
+  Lease for up to 1 s, and every waiting Lease wakes whenever any
+  execution becomes runnable, so with many idle workers of other pools
+  most of them wake for nothing. A worker starts a command only once the
+  scheduler has durably recorded RUNNING.
 - **Failure signature.** Classification uses a `REMEX_SIGNATURE:` line or the
   digest of the whole test log. Real logs with timestamps need a
   normalising signature to bisect.

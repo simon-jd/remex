@@ -4,7 +4,11 @@
 byte fields contain the official REAPI v2 protobuf wire format, not JSON. The
 worker can generate C++ stubs while consuming upstream REAPI C++ definitions.
 
-A worker ID owns at most one active lease. Register before polling. Send fresh
+A worker ID owns at most one active lease. Register before polling. A Lease
+with `wait_ms` asks the scheduler to hold the call while it has no work for
+the worker, at most `RegisterResponse.lease_wait_ms`; then poll again at once.
+A scheduler that reports `lease_wait_ms` 0 answers every Lease at once, so
+pause between idle polls. Send fresh
 measured platform properties on every Lease call; GPU workers include their NVML
 snapshot and `gpu.cc`/`gpu.driver_major`. A registered worker's liveness window
 is refreshed by polling and heartbeats.

@@ -23,7 +23,10 @@ database write failure makes the scheduler fail closed and the CLI exit, so
 restart reacquires leadership and reloads durable state. Throughput under
 load is measured by `cmd/remex-loadtest`; see the top-level README.
 
-Workers register before execution submissions. `Lease` refreshes measured
+Workers register before execution submissions. A `Lease` with `wait_ms` is
+held, without the scheduler lock, while there is no work for its worker, until
+a commit makes an execution runnable or the wait (capped at a third of the
+lease, reported by `Register`) is over. `Lease` refreshes measured
 properties before assignment; unfulfillable requests complete with
 FAILED_PRECONDITION and an explanation. CPU/memory minima are numeric; other
 requirements compare exactly. `remex-hw=true` is a cache-policy marker. Bazel

@@ -158,7 +158,41 @@ after the kill (median 2.2 s; `results/scheduler-restart.jsonl`).
 **Cost.** An outage longer than the lease still costs a retry of the whole
 action. While the scheduler is down, each worker reconnects about once a
 second, and a worker told to stop can take one RPC deadline (at most 5 s)
-to notice.
+to notice (6 s for a Lease that is waiting for work).
+
+## Idle workers wait in Lease
+
+**Decision.** A Lease may ask the scheduler to hold it while there is no
+work for its worker (`wait_ms`). The scheduler then waits without the lock
+until a commit makes some execution runnable, looks again, and answers with
+nothing once the wait is over; it caps the wait at a third of the lease and
+reports the cap at registration. The worker asks for at most 1 s and
+otherwise calls again at once. A worker whose scheduler reports no cap, an
+older one, still pauses 500 ms between idle polls.
+
+**Alternatives.** Poll more often; push work to workers over a stream the
+scheduler holds open; wake only one waiting worker per runnable execution,
+or only the ones whose properties match it.
+
+**Why.** With 500 ms polls, every second an action of the cold
+`samples/cpp-history` build spent queued, 8.7–9.5 s per build, fell while a
+worker was idle (`results/cpu-build-lease-poll-breakdown.jsonl`): the
+workers were busy 50–59% of the scheduler's span. Held Leases cut that to
+0.02–0.1 s, the span from 7.6–9.3 s to 4.7–5.5 s and the build from 11.3 s
+to 8.7 s (medians of five, `results/cpu-build-lease-poll.jsonl` and
+`results/cpu-build.jsonl`). A long poll keeps the
+unary Lease RPC, its fencing and its retry rules as they are; a stream
+would need its own failure handling for a protocol whose every other call
+is a retried unary RPC. Faster polling only shortens the wait, at the cost
+of more idle RPCs.
+
+**Cost.** Every waiting Lease wakes when any execution becomes runnable,
+and all but the one that gets it wait again; with many idle workers,
+including other pools', most wakeups are wasted. An idle worker still
+calls the scheduler once a second, and a stop request can wait up to that
+second behind a held Lease. The device snapshot a GPU worker sends with a
+Lease can be up to 1 s old when the Lease is granted; the worker reads its
+identity again before it runs.
 
 ## Complete is accepted only for a finished attempt
 
