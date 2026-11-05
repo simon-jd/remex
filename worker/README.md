@@ -1,6 +1,6 @@
 # C++20 worker
 
-The worker speaks the project worker gRPC protocol and the official REAPI v2 / ByteStream CAS protocols. It never writes ActionCache. A delegated cgroup v2 subtree with `cgroup.kill`, CPU and memory controllers is mandatory; failed cleanup prevents `Complete`.
+The worker speaks the project worker gRPC protocol and the official REAPI v2 / ByteStream CAS protocols. It never writes ActionCache. By default a delegated cgroup v2 subtree with `cgroup.kill`, CPU and memory controllers is mandatory; `--isolation process-group` (below) is the weaker mode for hosts without one. In both, failed cleanup prevents `Complete`.
 
 ## Build
 
@@ -8,7 +8,7 @@ From the repository root:
 
 ```sh
 bazel build //worker:remex-worker
-bazel test //worker:worker-tests //worker:remote-tests //worker:polling-tests
+bazel test //worker:worker-tests //worker:process-group-tests //worker:remote-tests //worker:polling-tests
 ```
 
 `MODULE.bazel` pins gRPC C++ 1.84.0. Vendored protobuf schemas are unmodified remote-apis v2.12.0 and the Google APIs revision in `third_party/README.md`. Generated code is build output, not committed source.
@@ -36,6 +36,16 @@ build/worker/remex-worker \
 ```
 
 `--cas` optionally overrides the CAS endpoint in the lease. Both `grpc://` and `grpcs://` endpoints are accepted; TLS uses system trust. The initial intended deployment is one trusted team, without client authentication or network namespace isolation. All workers and Bazel clients must use the same toolchain image and image property. Absolute executable paths refer to that image. Environment variables come only from `Command`; host secrets and `LD_LIBRARY_PATH` are not inherited by actions.
+
+### Without a delegated cgroup
+
+`--isolation process-group` replaces `--cgroup-root` on hosts that cannot delegate a cgroup v2 subtree, such as containers without `CAP_SYS_ADMIN`:
+
+- each command starts a session (and process group) of its own and sets the `--rlimit NAME=VALUE` limits (`as`, `core`, `cpu`, `data`, `fsize`, `nofile`, `nproc`, `stack`) before `exec`;
+- the worker is a child subreaper, so a process that leaves the command's group is re-parented to it; after the command exits, on timeout and on lease loss it kills the group and every child it has until two scans of `/proc` in a row find none alive, and only then reports the attempt empty;
+- a guardian process kills the command's group if the worker itself dies.
+
+It is weaker than a cgroup. Nothing accounts memory or counts OOM kills (`oom_kill` is always 0 and `resource_usage_json` carries only CPU time), rlimits apply to each process rather than to the attempt, and a process that leaves the session survives a worker that dies. The worker must have no other child processes, and runs one attempt at a time. `resource_usage_json` names the mode (`"isolation":"process-group"`).
 
 `--probe` prints actual CPU/memory properties and GPU identity without registration. `--check-cgroup --cgroup-root PATH` verifies real cgroup filesystem identity, kill support, populated=0 and counters. `--once` exits after one received attempt, useful for controlled tests. Separate workers must use separate `--root` directories and worker IDs.
 

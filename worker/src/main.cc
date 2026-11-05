@@ -28,6 +28,8 @@ google::protobuf::Timestamp TimestampNow() {
 struct Config {
   std::string scheduler = "localhost:8980", cas, id = UniqueID();
   fs::path root = "/tmp/remex-worker", cgroup_root;
+  std::string isolation = "cgroup";
+  std::vector<Limit> limits;
   Properties properties{{"pool", "cpu"}};
   bool once = false, probe = false, check = false;
 };
@@ -50,8 +52,13 @@ Config Parse(int argc, char** argv) {
     if (arg == "--help") {
       std::cout << "remex-worker --scheduler HOST:PORT --cgroup-root DELEGATED_PATH [--cas "
                    "HOST:PORT] [--root PATH] [--id ID] [--property KEY=VALUE] [--once]\n"
+                   "remex-worker --scheduler HOST:PORT --isolation process-group [--rlimit "
+                   "NAME=VALUE]... [same options]\n"
                    "--probe prints host/NVML identity without registering; --check-cgroup verifies "
-                   "real cgroup.kill and emptiness.\n";
+                   "real cgroup.kill and emptiness.\n"
+                   "--isolation process-group is for hosts without a delegated cgroup v2 subtree: "
+                   "each command gets its own session and the rlimits, and the worker kills its "
+                   "whole process tree; nothing accounts memory or OOM kills.\n";
       std::exit(0);
     }
     if (i + 1 >= argc) throw Error("missing value for " + arg);
@@ -64,6 +71,12 @@ Config Parse(int argc, char** argv) {
       c.root = value;
     else if (arg == "--cgroup-root")
       c.cgroup_root = value;
+    else if (arg == "--isolation") {
+      if (value != "cgroup" && value != "process-group")
+        throw Error("--isolation must be cgroup or process-group");
+      c.isolation = value;
+    } else if (arg == "--rlimit")
+      c.limits.push_back(ParseLimit(value));
     else if (arg == "--id")
       c.id = value;
     else if (arg == "--property") {
@@ -74,6 +87,10 @@ Config Parse(int argc, char** argv) {
       throw Error("unknown option " + arg);
   }
   c.root = fs::absolute(c.root);
+  if (c.isolation == "process-group" && !c.cgroup_root.empty())
+    throw Error("--cgroup-root does not apply to --isolation process-group");
+  if (c.isolation == "cgroup" && !c.limits.empty())
+    throw Error("--rlimit needs --isolation process-group; a cgroup limits the whole attempt");
   return c;
 }
 // Every RPC to the scheduler waits, until its deadline, for the channel to
@@ -214,8 +231,12 @@ void Attempt(w::WorkerService::Stub& stub, const Config& config, const w::LeaseR
   if (!fs::create_directory(directory)) throw Error("attempt directory collision");
   const auto input = directory / "root", logs = directory / "logs";
   fs::create_directory(input);
-  // Never report cgroup_empty for an attempt whose cgroup could not be created.
-  Cgroup cgroup(config.cgroup_root, directory.filename().string());
+  // Never report cgroup_empty for an attempt whose cgroup or session could not be set up.
+  std::unique_ptr<Isolation> isolation;
+  if (config.isolation == "process-group")
+    isolation = std::make_unique<ProcessGroup>(config.limits);
+  else
+    isolation = std::make_unique<Cgroup>(config.cgroup_root, directory.filename().string());
   w::CompleteRequest complete;
   complete.set_worker_id(config.id);
   complete.set_attempt_id(lease.attempt_id());
@@ -271,7 +292,7 @@ void Attempt(w::WorkerService::Stub& stub, const Config& config, const w::LeaseR
           std::chrono::nanoseconds(action.timeout().nanos()));
       if (timeout.count() == 0) timeout = std::chrono::milliseconds(1);
     }
-    auto process = RunCommand(command, input, logs, cgroup, timeout, guard.lost, [&] {
+    auto process = RunCommand(command, input, logs, *isolation, timeout, guard.lost, [&] {
       guard.Phase(w::HeartbeatRequest::RUNNING);
       *metadata.mutable_execution_start_timestamp() = TimestampNow();
     });
@@ -307,14 +328,14 @@ void Attempt(w::WorkerService::Stub& stub, const Config& config, const w::LeaseR
     std::cerr << "attempt " << lease.attempt_id() << ": " << error.what() << '\n';
   }
   // Cleanup failure is fatal to publication. Destructor retries, but no Complete is sent.
-  resources = cgroup.KillAndWait();
+  resources = isolation->KillAndWait();
   WriteFile(directory / "resources.json", resources.JSON());
   WriteFile(directory / "device.json", device.json);
   if (guard.lost || shutting_down) {
     std::cerr << "lease lost; attempt abandoned after cgroup cleanup\n";
     return;
   }
-  complete.set_cgroup_empty(cgroup.empty());
+  complete.set_cgroup_empty(isolation->empty());
   complete.set_oom_kill(resources.oom_kill);
   complete.set_resource_usage_json(resources.JSON());
   *metadata.mutable_worker_completed_timestamp() = TimestampNow();
@@ -359,15 +380,24 @@ int Main(int argc, char** argv) {
     std::cout << "},\"device\":" << device.json << "}\n";
     return 0;
   }
-  if (config.cgroup_root.empty())
-    throw Error("--cgroup-root requires an explicitly delegated cgroup v2 subtree");
-  {
-    Cgroup preflight(config.cgroup_root, "remex-check-" + UniqueID());
+  if (config.isolation == "process-group") {
+    ProcessGroup preflight(config.limits);
     preflight.KillAndWait();
-  }
-  if (config.check) {
-    std::cout << "cgroup v2 kill and empty verification passed\n";
-    return 0;
+    if (config.check) {
+      std::cout << "process-group subreaper and empty verification passed\n";
+      return 0;
+    }
+  } else {
+    if (config.cgroup_root.empty())
+      throw Error("--cgroup-root requires an explicitly delegated cgroup v2 subtree");
+    {
+      Cgroup preflight(config.cgroup_root, "remex-check-" + UniqueID());
+      preflight.KillAndWait();
+    }
+    if (config.check) {
+      std::cout << "cgroup v2 kill and empty verification passed\n";
+      return 0;
+    }
   }
   fs::create_directories(config.root / "attempts");
   fs::create_directories(config.root / "cache");
@@ -384,7 +414,7 @@ int Main(int argc, char** argv) {
     ControlRpc(context);
     CheckControlRpc(stub->Register(&context, request, &registered), "Register RPC");
     std::cout << "registered worker=" << config.id << " pool=" << config.properties.at("pool")
-              << std::endl;
+              << " isolation=" << config.isolation << std::endl;
   };
   hooks.lease = [&](const DeviceSnapshot& device) {
     w::LeaseRequest request;

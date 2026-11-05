@@ -36,6 +36,12 @@ cc_test(
     deps = [":core"],
 )
 cc_test(
+    name = "process-group-tests",
+    srcs = ["tests/process_group_test.cc"],
+    copts = ["-std=c++20"],
+    deps = [":core"],
+)
+cc_test(
     name = "remote-tests",
     srcs = ["tests/remote_test.cc"],
     copts = ["-std=c++20"],

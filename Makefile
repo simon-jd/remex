@@ -16,7 +16,7 @@ go-build:
 	cd checker && $(GO) build -trimpath -o ../build/bin/remex-record ./cmd/remex-record
 	cd checker && $(GO) build -trimpath -o ../build/bin/remex-adapt ./cmd/remex-adapt
 worker-bazel:
-	.tools/bazel.official build //worker:remex-worker //worker:worker-tests //worker:remote-tests //worker:polling-tests //worker:nvml-tests
+	.tools/bazel.official build //worker:remex-worker //worker:worker-tests //worker:process-group-tests //worker:remote-tests //worker:polling-tests //worker:nvml-tests
 worker-build:
 	cmake -S worker -B build/worker -DCMAKE_BUILD_TYPE=RelWithDebInfo
 	cmake --build build/worker -j $${REMEX_BUILD_JOBS:-4}
