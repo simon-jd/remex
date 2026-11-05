@@ -7,7 +7,7 @@ measured and at which commit.
 
 Every comparison below is against an earlier
 version of this scheduler, against `git bisect`, or against plain local
-Bazel on the same cores. No existing REAPI scheduler (Buildbarn,
+Bazel on the same cores (on several machines, on one of them). No existing REAPI scheduler (Buildbarn,
 Buildfarm, NativeLink) was run on the same builds, so nothing here says how
 remex compares with one. The earlier scheduler versions that
 `results/` keeps records for are not in this repository's history.
@@ -64,8 +64,96 @@ idle workers polled Lease every 500 ms (`results/cpu-build-lease-poll.jsonl`), e
   lookups, 48 output downloads and the two tests, takes 0.22 s against
   0.10 s; these records do not show why the start is later.
 - All 40 builds produced identical test binaries. It is one small
-  workspace on one host, with the workers sharing the client's cores; it
-  does not say how remex behaves on a cluster.
+  workspace on one host, with the workers sharing the client's cores; for
+  separate machines see the next section.
+
+## Several machines
+
+`scripts/benchmark-nodes.py` ran on four CPU_X64_M nodes of a Snowflake
+trial compute pool, as one ML job whose four instances are joined by Ray.
+Each node has 8 vCPUs (Intel Xeon Platinum 8370C), 32 GB and Ubuntu 24.04
+with g++ 13.3. Node 0 runs Bazel 9.3, PostgreSQL 18.6, bazel-remote 2.6.3
+and the scheduler. Each other node runs eight `remex-worker` processes,
+started by a Ray actor pinned to it, with `--isolation process-group`
+(below). The nodes have no internet: the binaries, built in an
+`ubuntu:24.04` container, and the workspace come from the job's stage,
+checked against SHA-256 sums.
+
+The workload is `//worker:remex-worker` at commit c5338cd: this
+repository's worker, with gRPC 1.84, protobuf, BoringSSL and Abseil built
+from source. A build is 3,549 actions, 2,780 of which run commands, and every
+external repository is vendored (`--vendor_dir`). The method is that of
+`scripts/benchmark-cpu.py`: every build starts from `bazel clean`, cold
+builds start from an empty cache (a new disk cache, or a new bazel-remote
+and PostgreSQL), warm builds reuse it, and analysis runs once before any
+timed build. Local builds run on node 0 with 8 jobs and the process-wrapper
+sandbox; remex builds use one job per worker. Three trials
+(`results/nodes-scaling.jsonl`; the job's report and logs are in
+`results/snowflake/20261105T075322Z-remex-scale/`); median wall time with
+the range:
+
+| Build | Workers | Cold | Warm |
+|---|---|---|---|
+| Local Bazel on node 0, disk cache | (8 jobs) | 762 s (758–764) | 5.5 s (5.2–7.7) |
+| remex, one worker node | 8 | 867 s (865–869) | 6.6 s (6.2–8.0) |
+| remex, two worker nodes | 16 | 434 s (427–459) | 6.2 s (5.9–6.9) |
+| remex, three worker nodes | 24 | 296 s (296–305) | 6.0 s (5.9–6.8) |
+
+- **Three worker nodes build 2.6 times as fast as local Bazel** on one
+  node, and 2.9 times as fast as one worker node. One worker node takes
+  1.14 times as long as local Bazel, with the same number of cores running
+  actions; node 0's own cores then run only Bazel, the scheduler,
+  PostgreSQL and bazel-remote.
+- **Where the time goes.** Actions hardly waited for a worker: the
+  median wait for a lease is 0 ms in every build, and the time all 2,780
+  actions spent queued sums to at most 1.4 s per build. Workers held a
+  lease for 97–98% of the scheduler's span with one node, 96% with two and
+  94–95% with three. Per action, the medians are 91–93 ms fetching inputs
+  from bazel-remote on node 0 with one worker node and 105–106 ms with
+  three, 6–7 ms of setup, 425–476 ms running the command and 24–29 ms
+  uploading outputs. Input fetches are 6–7% of the
+  workers' time; the commands are 89–92%. Bazel uploads the inputs the
+  cache lacks with 32,133 ByteStream.Write calls per cold build.
+- **Warm builds never reach the scheduler.** All 2,780 actions hit
+  bazel-remote's action cache, and the builds take 0.5–1.1 s longer
+  (medians) than local Bazel's hits in its disk cache.
+- All 24 builds produced the same `remex-worker` binary.
+- **Isolation mode.** The nodes run as root without `CAP_SYS_ADMIN`, and
+  `/sys/fs/cgroup` is a tmpfs over cgroup v1 hierarchies: a worker cannot
+  get a delegated cgroup v2 subtree there (the probe in
+  `results/snowflake/20261105T062048Z-remex-probe2/`). The workers
+  therefore ran with `--isolation process-group` ([worker/README.md](../worker/README.md)):
+  every command in a process group of its own, the worker a child
+  subreaper that kills the group and every descendant before it reports an
+  attempt, and rlimits per process. Leases, fencing and the ledger are the
+  same in both modes; what this mode lacks is per-action memory accounting
+  and OOM counts, which these rows therefore do not have.
+
+**Faults across machines.** The same cold build on three worker nodes, in
+the job `20261105T164448Z-remex-faults` (`results/nodes-faults.jsonl`):
+100 s in, about a third of the way through, either every worker process
+on the third node is SIGKILLed and left dead, or the scheduler is
+SIGKILLed and started again 1 s later. Three runs of each; medians with
+the range, against 296 s for the same build without a fault:
+
+| Fault | Build | Kill to build done | Executions committed once, twice, never | Attempts run again |
+|---|---|---|---|---|
+| The third node's 8 workers killed | 408 s (392–432) | 308 s (292–332) | 2,780, 0, 0 | 8 in each run |
+| Scheduler killed, back 1.1–1.2 s later | 299 s (296–301) | 199 s (196–201) | 2,780, 0, 0 | 0 |
+
+- **A killed worker node costs its share of the remaining work, not
+  results.** The eight leases its workers held expired, and those eight
+  actions ran again on the other two nodes. Every execution was committed
+  exactly once, and the build lost no results. It took 112 s longer at
+  the median, about what losing a third of the workers for the rest of
+  the build costs. Three seconds after the kill, no action process was
+  left on the killed node.
+- **A killed scheduler cost nothing measurable.** The restarted scheduler
+  recovered the 24 leases running at the kill, every one of those attempts
+  finished and was committed, and no action ran twice. The builds took as
+  long as builds without a fault.
+- All six builds produced the same `remex-worker` binary as the scaling
+  runs.
 
 ## Control plane under load
 

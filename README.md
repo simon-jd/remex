@@ -8,8 +8,11 @@ PostgreSQL ledger, cache it only after every output is found in the CAS, and
 fence every attempt with a lease, so that a fault costs time, not lost work.
 
 **Scope:** one host (Intel Core i9-13900K, RTX 4090) runs everything, with
-the unmodified `bazel-remote` as CAS and action cache. Workloads: one small
-C++ workspace (90 actions), synthetic load-test workers, simulated bisection
+the unmodified `bazel-remote` as CAS and action cache, except rows 3–7:
+four CPU_X64_M nodes of a Snowflake trial compute pool (8 vCPUs each), with
+the workers in a weaker isolation mode (see Limitations). Workloads: one
+small C++ workspace (90 actions), remex's own worker with gRPC built from
+source (3,549 actions), synthetic load-test workers, simulated bisection
 histories, and one run on a synthetic CUDA history.
 
 ## Results
@@ -18,24 +21,46 @@ histories, and one run on a synthetic CUDA history.
 |---|---|---|---|
 | Cold build and test of `samples/cpp-history`, median of 5 | 8.7 s | Local Bazel, same 4 cores: 6.7 s | Local |
 | Warm build (cache hits, tests rerun), median of 5 | 3.9 s | Local Bazel: 3.3 s | Local |
+| Cold build of remex's worker with gRPC from source (2,780 remote actions), three worker nodes, median of 3 | 296 s | Local Bazel on one node's 8 vCPUs: 762 s | remex |
+| The same build, one worker node (8 workers), median of 3 | 867 s | Local Bazel: 762 s | Local |
+| The same build warm (cache hits), three worker nodes, median of 3 | 6.0 s | Local Bazel: 5.5 s | Local |
+| Every worker on one of the three nodes SIGKILLed 100 s into the cold build: results lost or committed twice, 3 runs | 0 (8 actions re-run in each run); build 408 s | No fault: 296 s | No fault |
+| Scheduler SIGKILLed 100 s into the cold build, restarted 1 s later: build time, median of 3 | 299 s, no action re-run | No fault: 296 s | Equal |
 | Scheduler SIGKILLed while an action uploads 64 MiB: kill to build done, median of 5 | 2.2 s | Earlier worker, which re-ran the action: 13.8 s | remex |
 | PostgreSQL ledger, 64 synthetic workers: actions/s, median of 5 | 1,479 | Earlier remex, one commit per mutation: 117 (median of 3) | remex |
 | Flaky bisect, failure rate 0.25, 1,000 simulated histories: correct | 95.5% | `git bisect run`, `exit 125` on infrastructure failures: 0.9% | remex |
 | The same bisections: median test runs | 275 | `git bisect run`, 30 reruns per revision: 186 | Reruns |
 
-Sources in `results/`: `cpu-build.jsonl` (rows 1–2),
-`scheduler-restart.jsonl` (row 3), `control-plane.jsonl` against the
-empty-history `per-mutation` runs of `control-plane-per-mutation*.jsonl` and
-`control-plane-group-commit.jsonl` (row 4), `bisect-simulation.jsonl`
-(rows 5–6). The 30 reruns, picked for the true failure rate, are also right
-more often (99.8%) but wrong 0.1% of the time; remex was never wrong there
-and answered inconclusive 4.5% of the time.
+Sources in `results/`: `cpu-build.jsonl` (rows 1–2), `nodes-scaling.jsonl`
+(rows 3–5), `nodes-faults.jsonl` (rows 6–7), `scheduler-restart.jsonl`
+(row 8), `control-plane.jsonl` against the empty-history `per-mutation`
+runs of `control-plane-per-mutation*.jsonl` and
+`control-plane-group-commit.jsonl` (row 9), `bisect-simulation.jsonl`
+(rows 10–11). Rows 3–7 ran on four CPU_X64_M nodes of a Snowflake trial
+compute pool, with the workers in `--isolation process-group` because the
+nodes have no cgroup v2 to delegate (see Limitations). The 30 reruns,
+picked for the true failure rate, are also right more often (99.8%) but
+wrong 0.1% of the time; remex was never wrong there and answered
+inconclusive 4.5% of the time.
 
 ## Limitations
 
-- **Slower than local Bazel here.** With the workers sharing the client's
-  four cores, cold builds take 1.3 times as long as local ones and warm
-  builds 1.2 times. Nothing here is measured on a cluster.
+- **Slower than local Bazel on the same number of cores.** On one host,
+  with the workers sharing the client's four cores, cold builds take 1.3
+  times as long as local ones and warm builds 1.2 times. On the Snowflake
+  nodes, one worker node takes 1.14 times as long as local Bazel on the
+  client node's 8 vCPUs; remex wins only by adding machines (three worker
+  nodes: 2.6 times as fast), and warm builds stay 0.5–1.1 s slower. Only up
+  to three worker nodes, on one workload, were measured.
+- **Weaker isolation on the multi-machine rows.** The Snowflake nodes run
+  as root without `CAP_SYS_ADMIN` and have no cgroup v2, so no cgroup
+  subtree can be delegated to the worker. Rows 3–7 therefore ran with
+  `--isolation process-group`: each command in a process group of its own,
+  per-process rlimits, and a worker that, as a child subreaper, kills every
+  process the command left before it reports the attempt. Leases, fencing
+  and the ledger work the same in both modes; per-action memory accounting
+  and OOM counts need the cgroup, and those rows have none. A process that
+  leaves the command's session outlives a worker that dies.
 - **Tuned reruns beat the bisect when the failure rate is known.** At each
   simulated rate they cost fewer runs and are right at least as often.
   remex does not need the rate, and it was wrong once in 16,000 bisections.
@@ -68,7 +93,8 @@ designs they replaced; [every benchmark in full](docs/benchmarks.md) and
 
 remex has four parts:
 - a Go scheduler with a PostgreSQL ledger;
-- C++20 workers that run actions in cgroups on CPU, GPU (CUDA) and RTL
+- C++20 workers that run actions in cgroups (or, on hosts without a
+  delegated cgroup, in process groups) on CPU, GPU (CUDA) and RTL
   (Verilator) pools; a GPU worker reads its device's identity from NVML
   before it leases and again before it runs;
 - the unmodified `bazel-remote` as CAS and action cache;

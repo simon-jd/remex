@@ -1,0 +1,391 @@
+{
+  "run_id": "20261105T062048Z-remex-probe2",
+  "pool": "PORTFOLIO_CPU_POOL",
+  "instances": 4,
+  "payload": "payloads/remex_probe_cpu.py",
+  "pip": [],
+  "args": [],
+  "started_at": "2026-11-05T06:20:48+00:00",
+  "pool_before": {
+    "state": "SUSPENDED",
+    "instance_family": "CPU_X64_M",
+    "min_nodes": "1",
+    "max_nodes": "4",
+    "active_nodes": "0",
+    "idle_nodes": "0",
+    "num_services": "0",
+    "num_jobs": "0"
+  },
+  "job_id": "PORTFOLIO_LAB.GPU.PF_REMEX_PROBE_CPU_REMEX_PROBE2_1CC8GG9XLBWO5",
+  "status_trace": [
+    {
+      "at_s": 8,
+      "job": "PENDING",
+      "containers": [
+        [
+          "PENDING",
+          "Unschedulable due to insufficient  resources."
+        ]
+      ]
+    },
+    {
+      "at_s": 28,
+      "job": "PENDING",
+      "containers": [
+        [
+          "PENDING",
+          "Compute pool node(s) are being provisioned"
+        ]
+      ]
+    },
+    {
+      "at_s": 109,
+      "job": "RUNNING",
+      "containers": [
+        [
+          "READY",
+          "Running"
+        ],
+        [
+          "PENDING",
+          "Compute pool node(s) are being provisioned"
+        ],
+        [
+          "PENDING",
+          "Compute pool node(s) are being provisioned"
+        ],
+        [
+          "PENDING",
+          "Compute pool node(s) are being provisioned"
+        ]
+      ]
+    },
+    {
+      "at_s": 199,
+      "job": "RUNNING",
+      "containers": [
+        [
+          "READY",
+          "Running"
+        ],
+        [
+          "READY",
+          "Running"
+        ],
+        [
+          "READY",
+          "Running"
+        ],
+        [
+          "READY",
+          "Running"
+        ]
+      ]
+    },
+    {
+      "at_s": 240,
+      "job": "PENDING",
+      "containers": [
+        [
+          "DONE",
+          "Completed successfully"
+        ],
+        [
+          "DONE",
+          "Completed successfully"
+        ],
+        [
+          "DONE",
+          "Completed successfully"
+        ],
+        [
+          "DONE",
+          "Completed successfully"
+        ]
+      ]
+    },
+    {
+      "at_s": 280,
+      "job": "DONE",
+      "containers": [
+        [
+          "DONE",
+          "Completed successfully"
+        ],
+        [
+          "DONE",
+          "Completed successfully"
+        ],
+        [
+          "DONE",
+          "Completed successfully"
+        ],
+        [
+          "DONE",
+          "Completed successfully"
+        ]
+      ]
+    }
+  ],
+  "status": "DONE",
+  "results": [
+    {
+      "kind": "cluster",
+      "alive": 4,
+      "head_ip": "10.244.1.202",
+      "resources": [
+        {
+          "CPU": 6.0,
+          "object_store_memory": 8589934592.0,
+          "memory": 21241356288.0,
+          "PF_REMEX_PROBE_CPU_REMEX_PROBE2_1CC8GG9XLBWO5": 1.0,
+          "node_tag:worker": 1.0,
+          "node:10.244.2.138": 1.0
+        },
+        {
+          "CPU": 6.0,
+          "memory": 21241257984.0,
+          "PF_REMEX_PROBE_CPU_REMEX_PROBE2_1CC8GG9XLBWO5": 1.0,
+          "node_tag:worker": 1.0,
+          "object_store_memory": 8589934592.0,
+          "node:10.244.2.74": 1.0
+        },
+        {
+          "node:__internal_head__": 1.0,
+          "node:10.244.1.202": 1.0,
+          "memory": 20801214874.0,
+          "object_store_memory": 8914806374.0,
+          "CPU": 6.0,
+          "node_tag:head": 1.0
+        },
+        {
+          "CPU": 6.0,
+          "object_store_memory": 8589934592.0,
+          "node_tag:worker": 1.0,
+          "memory": 21241389056.0,
+          "PF_REMEX_PROBE_CPU_REMEX_PROBE2_1CC8GG9XLBWO5": 1.0,
+          "node:10.244.2.202": 1.0
+        }
+      ]
+    },
+    {
+      "kind": "bind",
+      "ports": {
+        "12950": "ok",
+        "12951": "ok",
+        "12990": "ok",
+        "45000": "ok"
+      },
+      "listening": "/bin/sh: 1: ss: not found"
+    },
+    {
+      "kind": "node",
+      "host": "job-3",
+      "ip": "10.244.2.138 172.16.0.2 100.64.0.2",
+      "nproc": 8,
+      "affinity": 8,
+      "mem": "MemTotal:       32867836 kB",
+      "cpu_max": "cat: /sys/fs/cgroup/cpu.max: No such file or directory",
+      "mem_max": "cat: /sys/fs/cgroup/memory.max: No such file or directory",
+      "glibc": "ldd (Ubuntu GLIBC 2.39-0ubuntu8.9) 2.39",
+      "os": "Ubuntu 24.04.5 LTS",
+      "id": "uid=0(root) gid=0(root) groups=0(root)",
+      "capeff": "CapEff:\t00000000a80405fb",
+      "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "tools": "make=/usr/bin/make cmake=- git=/usr/bin/git java=/usr/lib/jvm/java-17-openjdk-amd64/bin/java useradd=/usr/sbin/useradd runuser=/usr/sbin/runuser su=/usr/bin/su unshare=/usr/bin/unshare tar=/usr/bin/tar zstd=-",
+      "ulimit": "1048576\n/bin/sh: 1: ulimit: Illegal option -u",
+      "disk": "overlay                      150G   14G  137G   9% /\noverlay                      150G   14G  137G   9% /\nstaged7ce34bf2da1e3ce6084f1  1.0P     0  1.0P   0% /mnt/job_stage",
+      "cwd": "/mnt/job_stage/app",
+      "cgroup": {
+        "fs": "tmpfs",
+        "self": "14:blkio:/system.slice/containerd.service/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4\n13:perf_event:/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4\n12:memory:/system.slice/containerd.service/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4\n11:hugetlb:/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4\n10:misc:/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4\n9:net_cls,net_prio:/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4\n8:rdma:/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4\n7:cpuset:/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4\n6:devices:/system.slice/containerd.service/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d",
+        "mount": "9287 9286 0:450 / /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,seclabel,mode=755,inode64\n9288 9287 0:26 /system.slice/containerd.service/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4 /sys/fs/cgroup/systemd ro,nosuid,nodev,noexec,relatime master:6 - cgroup cgroup rw,seclabel,xattr,release_agent=/usr/lib/systemd/systemd-cgroups-agent,name=systemd\n9289 9287 0:30 /system.slice/containerd.service/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4 /sys/fs/cgroup/cpu,cpuacct ro,nosuid,nodev,noexec,relatime master:7 - cgroup cgroup rw,seclabel,cpu,cpuacct\n9290 9287 0:31 /system.slice/containerd.service/kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4 /sys/fs/cgroup/pids ro,nosuid,nodev,noexec,relatime master:8 - cgroup cgroup rw,seclabel,pids\n9291 9287 0:32 /kubepods-burstable-pod32d13b12_f1ca_422d_8ec9_ffaa6d49cc10.slice:cri-containerd:e04a88f2a096c073c5aa3e90a4fafd1867f76243aaa3afef6869321c4d4f77b4 /sys/fs/cgroup/freezer ro,nosuid,nodev,noexec,relatime master:9 - cgroup cgroup rw,seclabel,freezer\n9292 9287 0:33 / /sys/fs/cgroup/debug ro,nosuid,nodev,noexec,relatime master:10 - cgroup cgroup rw,seclabel,debug\n9293 9287 0:34 /system.slice/containerd.service/kubepods-burstable-pod32",
+        "controllers": "cat: /sys/fs/cgroup/cgroup.controllers: No such file or directory",
+        "subtree": "cat: /sys/fs/cgroup/cgroup.subtree_control: No such file or directory",
+        "root_procs": "/bin/sh: 1: cannot open /sys/fs/cgroup/cgroup.procs: No such file",
+        "mkdir": "ok",
+        "enable_at_root": "ok",
+        "subtree_after": "+cpu +memory +pids",
+        "probe_controllers": "cat: /sys/fs/cgroup/remex-probe/cgroup.controllers: No such file or directory",
+        "enable_in_probe": "ok",
+        "move": "ok",
+        "memory_max": "ok",
+        "pids_max": "ok",
+        "cgroup_kill": "ok",
+        "sleeper_exit": null,
+        "leaf": "OSError: Directory not empty",
+        "rmdir": "OSError: Directory not empty"
+      },
+      "useradd": "uid=1001(remexprobe) gid=1001(remexprobe) groups=1001(remexprobe)",
+      "net": {
+        "12950": "ok",
+        "12951": "ok",
+        "12990": "ok",
+        "45000": "ok",
+        "bulk_MBps": 127.7
+      },
+      "node_id": "c75f9882",
+      "is_head": false
+    },
+    {
+      "kind": "node",
+      "host": "job-2",
+      "ip": "10.244.2.74 172.16.0.2 100.64.0.2",
+      "nproc": 8,
+      "affinity": 8,
+      "mem": "MemTotal:       32867836 kB",
+      "cpu_max": "cat: /sys/fs/cgroup/cpu.max: No such file or directory",
+      "mem_max": "cat: /sys/fs/cgroup/memory.max: No such file or directory",
+      "glibc": "ldd (Ubuntu GLIBC 2.39-0ubuntu8.9) 2.39",
+      "os": "Ubuntu 24.04.5 LTS",
+      "id": "uid=0(root) gid=0(root) groups=0(root)",
+      "capeff": "CapEff:\t00000000a80405fb",
+      "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "tools": "make=/usr/bin/make cmake=- git=/usr/bin/git java=/usr/lib/jvm/java-17-openjdk-amd64/bin/java useradd=/usr/sbin/useradd runuser=/usr/sbin/runuser su=/usr/bin/su unshare=/usr/bin/unshare tar=/usr/bin/tar zstd=-",
+      "ulimit": "1048576\n/bin/sh: 1: ulimit: Illegal option -u",
+      "disk": "overlay                      150G   14G  137G   9% /\noverlay                      150G   14G  137G   9% /\nstaged7ce34bf2da1e3ce6084f1  1.0P     0  1.0P   0% /mnt/job_stage",
+      "cwd": "/mnt/job_stage/app",
+      "cgroup": {
+        "fs": "tmpfs",
+        "self": "14:misc:/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9\n13:debug:/\n12:devices:/system.slice/containerd.service/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9\n11:blkio:/system.slice/containerd.service/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9\n10:hugetlb:/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9\n9:cpuset:/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9\n8:net_cls,net_prio:/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9\n7:freezer:/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9\n6:memory:/system.slice/containerd.service/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9\n5:cpu,cpuacct:/system.slice/containerd.service/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d76490",
+        "mount": "8840 8839 0:449 / /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,seclabel,mode=755,inode64\n8841 8840 0:26 /system.slice/containerd.service/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9 /sys/fs/cgroup/systemd ro,nosuid,nodev,noexec,relatime master:6 - cgroup cgroup rw,seclabel,xattr,release_agent=/usr/lib/systemd/systemd-cgroups-agent,name=systemd\n8842 8840 0:30 /kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9 /sys/fs/cgroup/rdma ro,nosuid,nodev,noexec,relatime master:7 - cgroup cgroup rw,seclabel,rdma\n8843 8840 0:31 /kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9 /sys/fs/cgroup/perf_event ro,nosuid,nodev,noexec,relatime master:8 - cgroup cgroup rw,seclabel,perf_event\n8844 8840 0:32 /system.slice/containerd.service/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9 /sys/fs/cgroup/pids ro,nosuid,nodev,noexec,relatime master:9 - cgroup cgroup rw,seclabel,pids\n8845 8840 0:33 /system.slice/containerd.service/kubepods-burstable-poda5f53fc2_3055_4713_aed1_b31f67745d7e.slice:cri-containerd:a7e8b6d764909dfd71ff512444153abd0e52fb6f9829ced33f906ad504b919f9 /sys/fs/cgroup/cpu,cpuacct ro,nos",
+        "controllers": "cat: /sys/fs/cgroup/cgroup.controllers: No such file or directory",
+        "subtree": "cat: /sys/fs/cgroup/cgroup.subtree_control: No such file or directory",
+        "root_procs": "/bin/sh: 1: cannot open /sys/fs/cgroup/cgroup.procs: No such file",
+        "mkdir": "ok",
+        "enable_at_root": "ok",
+        "subtree_after": "+cpu +memory +pids",
+        "probe_controllers": "cat: /sys/fs/cgroup/remex-probe/cgroup.controllers: No such file or directory",
+        "enable_in_probe": "ok",
+        "move": "ok",
+        "memory_max": "ok",
+        "pids_max": "ok",
+        "cgroup_kill": "ok",
+        "sleeper_exit": null,
+        "leaf": "OSError: Directory not empty",
+        "rmdir": "OSError: Directory not empty"
+      },
+      "useradd": "uid=1001(remexprobe) gid=1001(remexprobe) groups=1001(remexprobe)",
+      "net": {
+        "12950": "ok",
+        "12951": "ok",
+        "12990": "ok",
+        "45000": "ok",
+        "bulk_MBps": 238.9
+      },
+      "node_id": "3c8f2854",
+      "is_head": false
+    },
+    {
+      "kind": "node",
+      "host": "job-0",
+      "ip": "10.244.1.202 172.16.0.2 100.64.0.2",
+      "nproc": 8,
+      "affinity": 8,
+      "mem": "MemTotal:       32867836 kB",
+      "cpu_max": "cat: /sys/fs/cgroup/cpu.max: No such file or directory",
+      "mem_max": "cat: /sys/fs/cgroup/memory.max: No such file or directory",
+      "glibc": "ldd (Ubuntu GLIBC 2.39-0ubuntu8.9) 2.39",
+      "os": "Ubuntu 24.04.5 LTS",
+      "id": "uid=0(root) gid=0(root) groups=0(root)",
+      "capeff": "CapEff:\t00000000a80405fb",
+      "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "tools": "make=/usr/bin/make cmake=- git=/usr/bin/git java=/usr/lib/jvm/java-17-openjdk-amd64/bin/java useradd=/usr/sbin/useradd runuser=/usr/sbin/runuser su=/usr/bin/su unshare=/usr/bin/unshare tar=/usr/bin/tar zstd=-",
+      "ulimit": "1048576\n/bin/sh: 1: ulimit: Illegal option -u",
+      "disk": "overlay                      150G   15G  136G  10% /\noverlay                      150G   15G  136G  10% /\nstaged7ce34bf2da1e3ce6084f1  1.0P     0  1.0P   0% /mnt/job_stage",
+      "cwd": "/mnt/job_stage/app",
+      "cgroup": {
+        "fs": "tmpfs",
+        "self": "14:rdma:/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d\n13:perf_event:/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d\n12:pids:/system.slice/containerd.service/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d\n11:memory:/system.slice/containerd.service/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d\n10:blkio:/system.slice/containerd.service/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d\n9:cpuset:/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d\n8:debug:/\n7:misc:/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d\n6:net_cls,net_prio:/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d\n5:hugetlb:/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569",
+        "mount": "8685 8684 0:449 / /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,seclabel,mode=755,inode64\n8686 8685 0:26 /system.slice/containerd.service/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d /sys/fs/cgroup/systemd ro,nosuid,nodev,noexec,relatime master:6 - cgroup cgroup rw,seclabel,xattr,release_agent=/usr/lib/systemd/systemd-cgroups-agent,name=systemd\n8687 8685 0:30 /system.slice/containerd.service/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d /sys/fs/cgroup/cpu,cpuacct ro,nosuid,nodev,noexec,relatime master:7 - cgroup cgroup rw,seclabel,cpu,cpuacct\n8688 8685 0:31 /kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d /sys/fs/cgroup/freezer ro,nosuid,nodev,noexec,relatime master:8 - cgroup cgroup rw,seclabel,freezer\n8689 8685 0:32 /system.slice/containerd.service/kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d /sys/fs/cgroup/devices ro,nosuid,nodev,noexec,relatime master:9 - cgroup cgroup rw,seclabel,devices\n8690 8685 0:33 /kubepods-burstable-podd088ae07_3996_4de6_9eb2_6c19a357a3b3.slice:cri-containerd:8ad1d1050b0415f793600b03595a52e76976db0be58adf7e569e7e0c917d358d /sys/fs/cgroup/huge",
+        "controllers": "cat: /sys/fs/cgroup/cgroup.controllers: No such file or directory",
+        "subtree": "cat: /sys/fs/cgroup/cgroup.subtree_control: No such file or directory",
+        "root_procs": "/bin/sh: 1: cannot open /sys/fs/cgroup/cgroup.procs: No such file",
+        "mkdir": "ok",
+        "enable_at_root": "ok",
+        "subtree_after": "+cpu +memory +pids",
+        "probe_controllers": "cat: /sys/fs/cgroup/remex-probe/cgroup.controllers: No such file or directory",
+        "enable_in_probe": "ok",
+        "move": "ok",
+        "memory_max": "ok",
+        "pids_max": "ok",
+        "cgroup_kill": "ok",
+        "sleeper_exit": null,
+        "leaf": "OSError: Directory not empty",
+        "rmdir": "OSError: Directory not empty"
+      },
+      "useradd": "uid=1001(remexprobe) gid=1001(remexprobe) groups=1001(remexprobe)",
+      "node_id": "ef5a559c",
+      "is_head": true
+    },
+    {
+      "kind": "node",
+      "host": "job-1",
+      "ip": "10.244.2.202 172.16.0.2 100.64.0.2",
+      "nproc": 8,
+      "affinity": 8,
+      "mem": "MemTotal:       32867836 kB",
+      "cpu_max": "cat: /sys/fs/cgroup/cpu.max: No such file or directory",
+      "mem_max": "cat: /sys/fs/cgroup/memory.max: No such file or directory",
+      "glibc": "ldd (Ubuntu GLIBC 2.39-0ubuntu8.9) 2.39",
+      "os": "Ubuntu 24.04.5 LTS",
+      "id": "uid=0(root) gid=0(root) groups=0(root)",
+      "capeff": "CapEff:\t00000000a80405fb",
+      "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "tools": "make=/usr/bin/make cmake=- git=/usr/bin/git java=/usr/lib/jvm/java-17-openjdk-amd64/bin/java useradd=/usr/sbin/useradd runuser=/usr/sbin/runuser su=/usr/bin/su unshare=/usr/bin/unshare tar=/usr/bin/tar zstd=-",
+      "ulimit": "1048576\n/bin/sh: 1: ulimit: Illegal option -u",
+      "disk": "overlay                      150G   14G  137G   9% /\noverlay                      150G   14G  137G   9% /\nstaged7ce34bf2da1e3ce6084f1  1.0P     0  1.0P   0% /mnt/job_stage",
+      "cwd": "/mnt/job_stage/app",
+      "cgroup": {
+        "fs": "tmpfs",
+        "self": "14:memory:/system.slice/containerd.service/kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378\n13:freezer:/kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378\n12:blkio:/system.slice/containerd.service/kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378\n11:cpuset:/kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378\n10:pids:/system.slice/containerd.service/kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378\n9:cpu,cpuacct:/system.slice/containerd.service/kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378\n8:devices:/system.slice/containerd.service/kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378\n7:misc:/kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378\n6:hugetlb:/kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:ba",
+        "mount": "7748 7747 0:449 / /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,seclabel,mode=755,inode64\n7749 7748 0:26 /system.slice/containerd.service/kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378 /sys/fs/cgroup/systemd ro,nosuid,nodev,noexec,relatime master:6 - cgroup cgroup rw,seclabel,xattr,release_agent=/usr/lib/systemd/systemd-cgroups-agent,name=systemd\n7750 7748 0:30 / /sys/fs/cgroup/debug ro,nosuid,nodev,noexec,relatime master:7 - cgroup cgroup rw,seclabel,debug\n7751 7748 0:31 /kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378 /sys/fs/cgroup/perf_event ro,nosuid,nodev,noexec,relatime master:8 - cgroup cgroup rw,seclabel,perf_event\n7752 7748 0:32 /kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378 /sys/fs/cgroup/rdma ro,nosuid,nodev,noexec,relatime master:9 - cgroup cgroup rw,seclabel,rdma\n7753 7748 0:33 /kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c050754f544aa1d8c7b5f38d7a9ffe5f5d1fdc0a614378 /sys/fs/cgroup/net_cls,net_prio ro,nosuid,nodev,noexec,relatime master:10 - cgroup cgroup rw,seclabel,net_cls,net_prio\n7754 7748 0:34 /kubepods-burstable-pod47ac16cf_e72d_472e_8920_8a0b9f227acc.slice:cri-containerd:baf35f324bfac0b377c05075",
+        "controllers": "cat: /sys/fs/cgroup/cgroup.controllers: No such file or directory",
+        "subtree": "cat: /sys/fs/cgroup/cgroup.subtree_control: No such file or directory",
+        "root_procs": "/bin/sh: 1: cannot open /sys/fs/cgroup/cgroup.procs: No such file",
+        "mkdir": "ok",
+        "enable_at_root": "ok",
+        "subtree_after": "+cpu +memory +pids",
+        "probe_controllers": "cat: /sys/fs/cgroup/remex-probe/cgroup.controllers: No such file or directory",
+        "enable_in_probe": "ok",
+        "move": "ok",
+        "memory_max": "ok",
+        "pids_max": "ok",
+        "cgroup_kill": "ok",
+        "sleeper_exit": null,
+        "leaf": "OSError: Directory not empty",
+        "rmdir": "OSError: Directory not empty"
+      },
+      "useradd": "uid=1001(remexprobe) gid=1001(remexprobe) groups=1001(remexprobe)",
+      "net": {
+        "12950": "ok",
+        "12951": "ok",
+        "12990": "ok",
+        "45000": "ok",
+        "bulk_MBps": 192.1
+      },
+      "node_id": "d0e0f0e5",
+      "is_head": false
+    }
+  ],
+  "seconds": 281.9,
+  "stop": [
+    "ALTER COMPUTE POOL PORTFOLIO_CPU_POOL STOP ALL: ok",
+    "ALTER COMPUTE POOL PORTFOLIO_CPU_POOL SUSPEND: ok"
+  ],
+  "pool_after": {
+    "state": "SUSPENDED",
+    "instance_family": "CPU_X64_M",
+    "min_nodes": "1",
+    "max_nodes": "4",
+    "active_nodes": "0",
+    "idle_nodes": "0",
+    "num_services": "0",
+    "num_jobs": "0"
+  },
+  "credits_estimate": 0.157
+}
